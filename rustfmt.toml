@@ -1,0 +1,10 @@
+# Line-width
+max_width = 80
+error_on_line_overflow = true
+use_small_heuristics = "Max"
+
+# Line-breaks
+imports_layout = "HorizontalVertical"
+wrap_comments = true
+fn_single_line = true
+overflow_delimited_expr = true
