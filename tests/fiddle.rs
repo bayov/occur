@@ -1,8 +1,9 @@
 #![allow(dead_code)]
 
 use crate::TvShowTrackEvents::{Created, WatchedEpisode};
-use event_sourcing::repo::{EventIterator, Repository, Stream as RepoStream};
+use event_sourcing::repo::{EventIterator, EventSubscription, Repository};
 use event_sourcing::{repo, Event, Id, SequenceNumber, Stream};
+use futures::task::SpawnExt;
 use std::borrow::Cow;
 
 #[derive(Debug, Clone)]
@@ -33,23 +34,60 @@ fn fiddle() {
     println!("-----------------------");
 
     let mut repo = repo::fake::Repository::new();
-    let mut repo_stream = repo.new_stream();
+    let e0 = stream[SequenceNumber(0)].clone();
+    let e1 = stream[SequenceNumber(1)].clone();
+    let e2 = stream[SequenceNumber(2)].clone();
+    let e3 = stream[SequenceNumber(3)].clone();
+
+    // remove "thread-pool" feature from futures if not using thread-pool
+    let pool = futures::executor::ThreadPool::new().unwrap();
+
+    let t = pool.spawn_with_handle(async move {
+        let id = repo.new_id();
+        repo.write_event(id, SequenceNumber(0), &e0).await.expect("wtf?");
+        repo.write_event(id, SequenceNumber(1), &e1).await.expect("wtf?");
+        repo.write_event(id, SequenceNumber(2), &e2).await.expect("wtf?");
+        repo.write_event(id, SequenceNumber(3), &e3).await.expect("wtf?");
+
+        let mut it =
+            repo.read_stream(&id, SequenceNumber(1)).await.expect("wtf?");
+        while let Some(event) = it.next().await {
+            println!("read {:?}", event);
+        }
+    });
+
+    futures::executor::block_on(t.unwrap());
+
+    println!("-----------------------");
+
+    let mut repo = repo::fake::Repository::new();
+    let id = repo.new_id();
     let e0 = stream[SequenceNumber(0)].clone();
     let e1 = stream[SequenceNumber(1)].clone();
     let e2 = stream[SequenceNumber(2)].clone();
     let e3 = stream[SequenceNumber(3)].clone();
 
     futures::executor::block_on(async {
-        repo_stream.write(SequenceNumber(0), &e0).await.expect("wtf?");
-        repo_stream.write(SequenceNumber(1), &e1).await.expect("wtf?");
-        repo_stream.write(SequenceNumber(2), &e2).await.expect("wtf?");
-        repo_stream.write(SequenceNumber(3), &e3).await.expect("wtf?");
-
-        let mut it = repo_stream.read(SequenceNumber(1)).await.expect("wtf?");
-        while let Some(event) = it.next().await {
-            println!("read {:?}", event);
-        }
+        repo.write_event(id, SequenceNumber(0), &e0).await.expect("wtf?");
+        repo.write_event(id, SequenceNumber(1), &e1).await.expect("wtf?");
     });
+
+    let f1 = async {
+        let mut it = repo
+            .subscribe_to_stream(&id, SequenceNumber(1))
+            .await
+            .expect("wtf?");
+        while let Some(event) = it.next().await {
+            println!("subscriber read {:?}", event);
+        }
+    };
+
+    let f2 = async {
+        repo.write_event(id, SequenceNumber(2), &e2).await.expect("wtf?");
+        repo.write_event(id, SequenceNumber(3), &e3).await.expect("wtf?");
+    };
+
+    // futures::executor::block_on();
 
     println!("-----------------------");
 

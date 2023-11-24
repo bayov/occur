@@ -1,7 +1,7 @@
 use derive_more::Display;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::ops::{Add, Sub};
+use std::ops::{Add, AddAssign, Sub};
 
 /// An ID that uniquely identifies an event stream.
 pub trait Id: Eq + Hash + Clone + Debug + Send + Sync {}
@@ -21,39 +21,15 @@ pub type Time = chrono::DateTime<TimeZone>;
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Display)]
 pub struct SequenceNumber(pub usize);
 
-impl SequenceNumber {
-    /// Returns the next sequence number (incremented by 1).
-    ///
-    /// ```
-    /// # use event_sourcing::SequenceNumber;
-    /// assert_eq!(SequenceNumber(42), SequenceNumber(41).next());
-    /// ```
-    #[must_use]
-    pub const fn next(self) -> Self { Self(self.0 + 1) }
-
-    /// Returns the previous version number (decremented by 1).
-    ///
-    /// ```
-    /// # use event_sourcing::SequenceNumber;
-    /// assert_eq!(SequenceNumber(41), SequenceNumber(42).prev());
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// When sequence number is 0:
-    ///
-    /// ```should_panic
-    /// # use event_sourcing::SequenceNumber;
-    /// let  _ = SequenceNumber(0).prev();
-    /// ```
-    #[must_use]
-    pub const fn prev(self) -> Self { Self(self.0 - 1) }
-}
-
 /// Adds a number to sequence number.
 impl Add<usize> for SequenceNumber {
     type Output = Self;
     fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) }
+}
+
+/// Adds a number to sequence number.
+impl AddAssign<usize> for SequenceNumber {
+    fn add_assign(&mut self, rhs: usize) { self.0 += rhs; }
 }
 
 /// Subtracts two sequence numbers, returning the difference between them.

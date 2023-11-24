@@ -1,64 +1,42 @@
 use crate::{Event, Id, Recorded, SequenceNumber};
 use std::error::Error;
-use std::future::Future;
 
 pub trait Repository<T: Event> {
-    type Id: Id;
-
-    type Stream<'repo>: Stream<'repo, T>
+    type StreamId: Id;
+    type EventIterator<'s>: EventIterator<'s, T>
     where
-        Self: 'repo;
+        Self: 's;
+    type EventSubscription<'s>: EventSubscription<'s, T>
+    where
+        Self: 's;
 
-    fn new_id(&mut self) -> Self::Id;
+    fn new_id(&mut self) -> Self::StreamId;
 
-    fn stream(&mut self, id: Self::Id) -> Self::Stream<'_>;
-
-    fn new_stream(&mut self) -> Self::Stream<'_> {
-        let id = self.new_id();
-        self.stream(id)
-    }
-}
-
-pub trait Stream<'repo, T: Event> {
-    type Id: Id;
-    type EventIterator: EventIterator<'repo, T>;
-    // type EventIterator: futures::Stream<Item = Recorded<T>> + 'repo;
-    // type EventSubscription: EventSubscription<'repo, T>;
-
-    fn id(&self) -> &Self::Id;
-
-    fn write(
+    async fn write_event(
         &mut self,
+        stream_id: Self::StreamId,
         sequence_number: SequenceNumber,
         event: &Recorded<T>,
-    ) -> impl Future<Output = Result<(), Box<dyn Error>>> + Send + Sync;
+    ) -> Result<(), Box<dyn Error>>;
 
-    fn read(
-        &'repo self,
+    async fn read_stream(
+        &self,
+        stream_id: &Self::StreamId,
         start_sequence_number: SequenceNumber,
-    ) -> impl Future<Output = Result<Self::EventIterator, Box<dyn Error>>>
-           + Send
-           + Sync;
+    ) -> Result<Self::EventIterator<'_>, Box<dyn Error>>;
 
-    // async fn read(
-    //     &self,
-    //     start_sequence_number: SequenceNumber,
-    // ) -> Result<Self::EventIterator, Box<dyn Error>>;
-
-    // async fn subscribe(
-    //     &self,
-    //     start_sequence_number: SequenceNumber,
-    // ) -> Result<Self::EventSubscription, Box<dyn Error>>;
+    async fn subscribe_to_stream(
+        &self,
+        stream_id: &Self::StreamId,
+        start_sequence_number: SequenceNumber,
+    ) -> Result<Self::EventSubscription<'_>, Box<dyn Error>>;
 }
 
-pub trait EventIterator<'repo, T: Event> {
-    fn next(
-        &mut self,
-    ) -> impl Future<Output = Option<Recorded<T>>> + Send + Sync;
+pub trait EventIterator<'s, T: Event> {
+    async fn next(&mut self) -> Option<Recorded<T>>;
 }
 
-pub trait EventSubscription<'repo, T: Event>:
-    futures::Stream<Item = Recorded<T>>
-{
+pub trait EventSubscription<'s, T: Event> {
+    async fn next(&mut self) -> Option<Recorded<T>>;
     fn stop(self);
 }

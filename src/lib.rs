@@ -1,5 +1,6 @@
-#![feature(coroutines, coroutine_trait, step_trait, impl_trait_in_assoc_type)]
+#![feature(coroutines, coroutine_trait, step_trait, type_alias_impl_trait)]
 #![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
+#![allow(async_fn_in_trait)]
 
 mod types;
 pub use types::{Id, SequenceNumber, Time, TimeZone};
