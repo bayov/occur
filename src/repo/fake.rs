@@ -11,7 +11,7 @@ type Id = u32;
 #[derive(Default)]
 pub struct Repository<T: Event> {
     next_id: Cell<Id>,
-    events_by_stream_id: HashMap<Id, SmartInnerStream<T>>,
+    events_by_stream_id: HashMap<Id, Stream<T>>,
 }
 
 impl<T: Event> Repository<T> {
@@ -19,14 +19,6 @@ impl<T: Event> Repository<T> {
     pub fn new() -> Self {
         Self { next_id: Cell::new(0), events_by_stream_id: HashMap::default() }
     }
-
-    // fn stream(&self, id: Id) -> Option<&Stream<T>> {
-    //     self.events_by_stream_id.get(&id)
-    // }
-    //
-    // fn mut_stream(&mut self, id: Id) -> &mut Stream<T> {
-    //     self.events_by_stream_id.entry(id).or_default()
-    // }
 }
 
 impl<T: Event> repo::Repository<T> for Repository<T> {
@@ -40,35 +32,29 @@ impl<T: Event> repo::Repository<T> for Repository<T> {
     }
 
     fn stream(&mut self, id: Id) -> Self::Stream {
-        Stream::new(Arc::clone(self.events_by_stream_id.entry(id).or_default()))
+        self.events_by_stream_id.entry(id).or_default().clone()
     }
 }
 
-struct InnerStream<T: Event> {
-    events: Vec<Recorded<T>>,
+type SmartVec<T> = Arc<RwLock<Vec<T>>>;
+
+#[derive(Clone)]
+pub struct Stream<T: Event> {
+    events: SmartVec<Recorded<T>>,
     sender: async_channel::Sender<SequenceNumber>,
     receiver: async_channel::Receiver<SequenceNumber>,
 }
 
-impl<T: Event> InnerStream<T> {
+impl<T: Event> Stream<T> {
     #[must_use]
     fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
-        Self { events: Vec::default(), sender, receiver }
+        Self { events: Arc::default(), sender, receiver }
     }
 }
 
-impl<T: Event> Default for InnerStream<T> {
+impl<T: Event> Default for Stream<T> {
     fn default() -> Self { Self::new() }
-}
-
-type SmartInnerStream<T> = Arc<RwLock<InnerStream<T>>>;
-
-pub struct Stream<T: Event>(SmartInnerStream<T>);
-
-impl<T: Event> Stream<T> {
-    #[must_use]
-    fn new(inner_stream: SmartInnerStream<T>) -> Self { Self(inner_stream) }
 }
 
 impl<T: Event> repo::Stream<T> for Stream<T> {
@@ -84,16 +70,10 @@ impl<T: Event> repo::Stream<T> for Stream<T> {
         event: &Recorded<T>,
     ) -> repo::Result<()> {
         let want_sequence_number =
-            SequenceNumber(self.0.read().await.events.len());
+            SequenceNumber(self.events.read().await.len());
         assert_eq!(sequence_number, want_sequence_number);
-        self.0.write().await.events.push(event.clone());
-        self.0
-            .read()
-            .await
-            .sender
-            .send(sequence_number)
-            .await
-            .expect("Should not fail");
+        self.events.write().await.push(event.clone());
+        self.sender.send(sequence_number).await.expect("Should not fail");
         Ok(())
     }
 
@@ -101,7 +81,7 @@ impl<T: Event> repo::Stream<T> for Stream<T> {
         &self,
         start_sequence_number: SequenceNumber,
     ) -> repo::Result<Self::EventIterator> {
-        Ok(EventIterator::new(Arc::clone(&self.0), start_sequence_number))
+        Ok(EventIterator::new(Arc::clone(&self.events), start_sequence_number))
     }
 
     async fn subscribe(
@@ -109,32 +89,32 @@ impl<T: Event> repo::Stream<T> for Stream<T> {
         start_sequence_number: SequenceNumber,
     ) -> repo::Result<Self::EventSubscription> {
         Ok(EventSubscription::new(
-            Arc::clone(&self.0),
+            Arc::clone(&self.events),
             start_sequence_number,
-            self.0.read().await.receiver.clone(),
+            self.receiver.clone(),
         ))
     }
 }
 
 pub struct EventIterator<T: Event> {
-    stream: SmartInnerStream<T>,
+    events: SmartVec<Recorded<T>>,
     sequence_number: SequenceNumber,
 }
 
 impl<T: Event> EventIterator<T> {
     #[must_use]
     const fn new(
-        stream: SmartInnerStream<T>,
+        events: SmartVec<Recorded<T>>,
         start_sequence_number: SequenceNumber,
     ) -> Self {
-        Self { stream, sequence_number: start_sequence_number }
+        Self { events, sequence_number: start_sequence_number }
     }
 }
 
 impl<T: Event> repo::EventIterator<T> for EventIterator<T> {
     async fn next(&mut self) -> Option<Recorded<T>> {
-        let stream = self.stream.read().await;
-        let event = stream.events.get(self.sequence_number.0);
+        let events = self.events.read().await;
+        let event = events.get(self.sequence_number.0);
         if event.is_some() {
             self.sequence_number += 1;
         }
@@ -143,7 +123,7 @@ impl<T: Event> repo::EventIterator<T> for EventIterator<T> {
 }
 
 pub struct EventSubscription<T: Event> {
-    stream: SmartInnerStream<T>,
+    events: SmartVec<Recorded<T>>,
     sequence_number: SequenceNumber,
     receiver: async_channel::Receiver<SequenceNumber>,
 }
@@ -151,19 +131,19 @@ pub struct EventSubscription<T: Event> {
 impl<T: Event> EventSubscription<T> {
     #[must_use]
     const fn new(
-        stream: SmartInnerStream<T>,
+        events: SmartVec<Recorded<T>>,
         start_sequence_number: SequenceNumber,
         receiver: async_channel::Receiver<SequenceNumber>,
     ) -> Self {
-        Self { stream, sequence_number: start_sequence_number, receiver }
+        Self { events, sequence_number: start_sequence_number, receiver }
     }
 }
 
 impl<T: Event> repo::EventSubscription<T> for EventSubscription<T> {
     async fn next(&mut self) -> Option<Recorded<T>> {
         {
-            let stream = self.stream.read().await;
-            let event = stream.events.get(self.sequence_number.0);
+            let events = self.events.read().await;
+            let event = events.get(self.sequence_number.0);
             if let Some(event) = event {
                 self.sequence_number += 1;
                 return Some(event.clone());
@@ -171,8 +151,8 @@ impl<T: Event> repo::EventSubscription<T> for EventSubscription<T> {
         }
         while let Ok(sequence_number) = self.receiver.recv().await {
             if sequence_number >= self.sequence_number {
-                let stream = self.stream.read().await;
-                let event = stream.events.get(self.sequence_number.0).unwrap();
+                let events = self.events.read().await;
+                let event = events.get(self.sequence_number.0).unwrap();
                 self.sequence_number += 1;
                 return Some(event.clone());
             }

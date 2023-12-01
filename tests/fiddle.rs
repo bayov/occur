@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use std::borrow::Cow;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use futures::join;
 use futures::task::SpawnExt;
@@ -26,7 +26,7 @@ impl Event for TvShowTrackEvents {}
 
 #[test]
 fn fiddle() {
-    println!();
+    println!("\n----------------------- [ Basic test ]");
 
     let mut stream = Stream::new(42);
     stream.record(Created { tv_show_name: "Elementary".into() });
@@ -36,12 +36,12 @@ fn fiddle() {
 
     print_stream(&stream);
 
-    println!("-----------------------");
+    println!("\n----------------------- [ Indexing test ]");
 
     println!("stream[0] = {:?}", stream[SequenceNumber(0)]);
     println!("stream[2] = {:?}", stream[SequenceNumber(2)]);
 
-    println!("-----------------------");
+    println!("\n----------------------- [ ThreadPool read test ]");
 
     let e0 = stream[SequenceNumber(0)].clone();
     let e1 = stream[SequenceNumber(1)].clone();
@@ -68,7 +68,7 @@ fn fiddle() {
 
     futures::executor::block_on(t.unwrap());
 
-    println!("-----------------------");
+    println!("\n----------------------- [ ThreadPool subscribe test ]");
 
     let e0 = stream[SequenceNumber(0)].clone();
     let e1 = stream[SequenceNumber(1)].clone();
@@ -113,7 +113,63 @@ fn fiddle() {
 
     futures::executor::block_on(t.unwrap());
 
-    println!("-----------------------");
+    println!("\n----------------------- [ LocalPool subscribe test ]");
+
+    let e0 = stream[SequenceNumber(0)].clone();
+    let e1 = stream[SequenceNumber(1)].clone();
+    let e2 = stream[SequenceNumber(2)].clone();
+    let e3 = stream[SequenceNumber(3)].clone();
+
+    let repo = Arc::new(Mutex::new(repo::fake::Repository::new()));
+    let id = repo.lock().unwrap().new_id();
+
+    // remove "thread-pool" feature from futures if not using thread-pool
+    let mut pool = futures::executor::LocalPool::new();
+    let spawner = pool.spawner();
+
+    let repo2 = Arc::clone(&repo);
+
+    spawner
+        .spawn(async move {
+            let mut stream = repo2.lock().unwrap().stream(id);
+            stream.write(SequenceNumber(0), &e0).await.expect("wtf?");
+            stream.write(SequenceNumber(1), &e1).await.expect("wtf?");
+        })
+        .expect("wtf?");
+
+    pool.run();
+
+    let repo2 = Arc::clone(&repo);
+
+    spawner
+        .spawn(async move {
+            let stream = repo2.lock().unwrap().stream(id);
+            let mut it =
+                stream.subscribe(SequenceNumber(1)).await.expect("wtf?");
+            while let Some(event) = it.next().await {
+                println!("subscriber read {:?}", event);
+                if let WatchedEpisode { episode, season: _ } = event.event {
+                    if episode == 3 {
+                        break;
+                    }
+                }
+            }
+        })
+        .expect("wtf?");
+
+    let repo2 = Arc::clone(&repo);
+
+    spawner
+        .spawn(async move {
+            let mut stream = repo2.lock().unwrap().stream(id);
+            stream.write(SequenceNumber(2), &e2).await.expect("wtf?");
+            stream.write(SequenceNumber(3), &e3).await.expect("wtf?");
+        })
+        .expect("wtf?");
+
+    pool.run();
+
+    println!("\n----------------------- [ Stream rebuild test ]");
 
     let mut events = stream.take_events();
     events.remove(0);
