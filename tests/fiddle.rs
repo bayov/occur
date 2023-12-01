@@ -1,18 +1,28 @@
 #![allow(dead_code)]
 
-use crate::TvShowTrackEvents::{Created, WatchedEpisode};
-use event_sourcing::repo::{EventIterator, EventSubscription, Repository};
-use event_sourcing::{repo, Event, Id, SequenceNumber, Stream};
-use futures::task::SpawnExt;
 use std::borrow::Cow;
+use std::sync::Mutex;
+
+use futures::join;
+use futures::task::SpawnExt;
+
+use event_sourcing::repo::{
+    EventIterator,
+    EventSubscription,
+    Repository,
+    Stream as _,
+};
+use event_sourcing::{repo, Event, Id, SequenceNumber, Stream};
+
+use crate::TvShowTrackEvents::{Created, WatchedEpisode};
 
 #[derive(Debug, Clone)]
-enum TvShowTrackEvents<'s> {
-    Created { tv_show_name: Cow<'s, str> },
+enum TvShowTrackEvents {
+    Created { tv_show_name: String },
     WatchedEpisode { season: u64, episode: u64 },
 }
 
-impl<'s> Event for TvShowTrackEvents<'s> {}
+impl Event for TvShowTrackEvents {}
 
 #[test]
 fn fiddle() {
@@ -33,24 +43,24 @@ fn fiddle() {
 
     println!("-----------------------");
 
-    let mut repo = repo::fake::Repository::new();
     let e0 = stream[SequenceNumber(0)].clone();
     let e1 = stream[SequenceNumber(1)].clone();
     let e2 = stream[SequenceNumber(2)].clone();
     let e3 = stream[SequenceNumber(3)].clone();
 
+    let mut repo = repo::fake::Repository::new();
+
     // remove "thread-pool" feature from futures if not using thread-pool
     let pool = futures::executor::ThreadPool::new().unwrap();
 
     let t = pool.spawn_with_handle(async move {
-        let id = repo.new_id();
-        repo.write_event(id, SequenceNumber(0), &e0).await.expect("wtf?");
-        repo.write_event(id, SequenceNumber(1), &e1).await.expect("wtf?");
-        repo.write_event(id, SequenceNumber(2), &e2).await.expect("wtf?");
-        repo.write_event(id, SequenceNumber(3), &e3).await.expect("wtf?");
+        let mut stream = repo.new_stream();
+        stream.write(SequenceNumber(0), &e0).await.expect("wtf?");
+        stream.write(SequenceNumber(1), &e1).await.expect("wtf?");
+        stream.write(SequenceNumber(2), &e2).await.expect("wtf?");
+        stream.write(SequenceNumber(3), &e3).await.expect("wtf?");
 
-        let mut it =
-            repo.read_stream(&id, SequenceNumber(1)).await.expect("wtf?");
+        let mut it = stream.read(SequenceNumber(1)).await.expect("wtf?");
         while let Some(event) = it.next().await {
             println!("read {:?}", event);
         }
@@ -60,34 +70,48 @@ fn fiddle() {
 
     println!("-----------------------");
 
-    let mut repo = repo::fake::Repository::new();
-    let id = repo.new_id();
     let e0 = stream[SequenceNumber(0)].clone();
     let e1 = stream[SequenceNumber(1)].clone();
     let e2 = stream[SequenceNumber(2)].clone();
     let e3 = stream[SequenceNumber(3)].clone();
 
-    futures::executor::block_on(async {
-        repo.write_event(id, SequenceNumber(0), &e0).await.expect("wtf?");
-        repo.write_event(id, SequenceNumber(1), &e1).await.expect("wtf?");
+    let repo = Mutex::new(repo::fake::Repository::new());
+    let id = repo.lock().unwrap().new_id();
+
+    // remove "thread-pool" feature from futures if not using thread-pool
+    let pool = futures::executor::ThreadPool::new().unwrap();
+
+    let t = pool.spawn_with_handle(async move {
+        {
+            let mut stream = repo.lock().unwrap().stream(id);
+            stream.write(SequenceNumber(0), &e0).await.expect("wtf?");
+            stream.write(SequenceNumber(1), &e1).await.expect("wtf?");
+        }
+
+        let f1 = async {
+            let stream = repo.lock().unwrap().stream(id);
+            let mut it =
+                stream.subscribe(SequenceNumber(1)).await.expect("wtf?");
+            while let Some(event) = it.next().await {
+                println!("subscriber read {:?}", event);
+                if let WatchedEpisode { episode, season: _ } = event.event {
+                    if episode == 3 {
+                        break;
+                    }
+                }
+            }
+        };
+
+        let f2 = async {
+            let mut stream = repo.lock().unwrap().stream(id);
+            stream.write(SequenceNumber(2), &e2).await.expect("wtf?");
+            stream.write(SequenceNumber(3), &e3).await.expect("wtf?");
+        };
+
+        join!(f1, f2);
     });
 
-    let f1 = async {
-        let mut it = repo
-            .subscribe_to_stream(&id, SequenceNumber(1))
-            .await
-            .expect("wtf?");
-        while let Some(event) = it.next().await {
-            println!("subscriber read {:?}", event);
-        }
-    };
-
-    let f2 = async {
-        repo.write_event(id, SequenceNumber(2), &e2).await.expect("wtf?");
-        repo.write_event(id, SequenceNumber(3), &e3).await.expect("wtf?");
-    };
-
-    // futures::executor::block_on();
+    futures::executor::block_on(t.unwrap());
 
     println!("-----------------------");
 

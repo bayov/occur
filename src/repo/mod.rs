@@ -1,6 +1,8 @@
-// pub mod error;
+pub use error::Result;
+pub use repository::{EventIterator, EventSubscription, Repository, Stream};
+
+pub mod error;
 
 mod repository;
-pub use repository::{EventIterator, EventSubscription, Repository};
 
 pub mod fake;

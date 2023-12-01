@@ -1,42 +1,48 @@
-use crate::{Event, Id, Recorded, SequenceNumber};
-use std::error::Error;
+use crate::{repo, Event, Id, Recorded, SequenceNumber};
 
 pub trait Repository<T: Event> {
-    type StreamId: Id;
-    type EventIterator<'s>: EventIterator<'s, T>
-    where
-        Self: 's;
-    type EventSubscription<'s>: EventSubscription<'s, T>
-    where
-        Self: 's;
+    type Id: Id;
+    type Stream: Stream<T>;
 
-    fn new_id(&mut self) -> Self::StreamId;
+    fn new_id(&mut self) -> Self::Id;
 
-    async fn write_event(
-        &mut self,
-        stream_id: Self::StreamId,
-        sequence_number: SequenceNumber,
-        event: &Recorded<T>,
-    ) -> Result<(), Box<dyn Error>>;
+    fn stream(&mut self, id: Self::Id) -> Self::Stream;
 
-    async fn read_stream(
-        &self,
-        stream_id: &Self::StreamId,
-        start_sequence_number: SequenceNumber,
-    ) -> Result<Self::EventIterator<'_>, Box<dyn Error>>;
-
-    async fn subscribe_to_stream(
-        &self,
-        stream_id: &Self::StreamId,
-        start_sequence_number: SequenceNumber,
-    ) -> Result<Self::EventSubscription<'_>, Box<dyn Error>>;
+    fn new_stream(&mut self) -> Self::Stream {
+        let id = self.new_id();
+        self.stream(id)
+    }
 }
 
-pub trait EventIterator<'s, T: Event> {
+pub trait Stream<T: Event> {
+    type Id: Id;
+    type EventIterator: EventIterator<T>;
+    type EventSubscription: EventSubscription<T>;
+
+    fn id(&self) -> &Self::Id;
+
+    async fn write(
+        &mut self,
+        sequence_number: SequenceNumber,
+        event: &Recorded<T>,
+    ) -> repo::Result<()>;
+
+    async fn read(
+        &self,
+        start_sequence_number: SequenceNumber,
+    ) -> repo::Result<Self::EventIterator>;
+
+    async fn subscribe(
+        &self,
+        start_sequence_number: SequenceNumber,
+    ) -> repo::Result<Self::EventSubscription>;
+}
+
+pub trait EventIterator<T: Event> {
     async fn next(&mut self) -> Option<Recorded<T>>;
 }
 
-pub trait EventSubscription<'s, T: Event> {
+pub trait EventSubscription<T: Event> {
     async fn next(&mut self) -> Option<Recorded<T>>;
     fn stop(self);
 }

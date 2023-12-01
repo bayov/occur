@@ -1,11 +1,13 @@
-use derive_more::Display;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::{Add, AddAssign, Sub};
 
+use derive_more::Display;
+
 /// An ID that uniquely identifies an event stream.
-pub trait Id: Eq + Hash + Clone + Debug + Send + Sync {}
-impl<T: Eq + Hash + Clone + Debug + Send + Sync> Id for T {}
+pub trait Id: Eq + Hash + Clone + Debug + Display + Send + Sync {}
+
+impl<T: Eq + Hash + Clone + Debug + Display + Send + Sync> Id for T {}
 
 /// The default time-zone used by recorded events.
 pub type TimeZone = chrono::Utc;
