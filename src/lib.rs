@@ -4,7 +4,8 @@
     step_trait,
     type_alias_impl_trait,
     return_position_impl_trait_in_trait,
-    error_generic_member_access
+    error_generic_member_access,
+    marker_trait_attr
 )]
 #![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
 #![allow(async_fn_in_trait)]
@@ -16,9 +17,13 @@
 // feature(return_position_impl_trait_in_trait).
 #![allow(stable_features)]
 
-pub use event::{Event, Recorded, Stream};
-pub use types::{Id, SequenceNumber, Time, TimeZone};
+pub use entity::Entity;
+pub use event::{Event, Recorded, Stream, Timed};
+pub use ref_::{Ref, Referable};
+pub use types::{Id, SequenceNumber, Time};
 
+mod entity;
 mod event;
+mod ref_;
 pub mod repo;
 mod types;

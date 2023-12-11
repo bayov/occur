@@ -9,11 +9,8 @@ pub trait Id: Eq + Hash + Clone + Debug + Display + Send + Sync {}
 
 impl<T: Eq + Hash + Clone + Debug + Display + Send + Sync> Id for T {}
 
-/// The default time-zone used by recorded events.
-pub type TimeZone = chrono::Utc;
-
 /// The time that an event was recorded at.
-pub type Time = chrono::DateTime<TimeZone>;
+pub type Time = std::time::SystemTime;
 
 /// The sequence number of a recorded event.
 ///

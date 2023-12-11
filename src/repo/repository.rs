@@ -1,4 +1,4 @@
-use crate::{repo, Event, Id, Recorded, SequenceNumber};
+use crate::{repo, Event, Id, SequenceNumber, Timed};
 
 pub trait Repository<T: Event> {
     type Id: Id;
@@ -24,7 +24,7 @@ pub trait Stream<T: Event> {
     async fn write(
         &mut self,
         sequence_number: SequenceNumber,
-        event: &Recorded<T>,
+        event: &Timed<T>,
     ) -> repo::Result<()>;
 
     async fn read(
@@ -39,10 +39,10 @@ pub trait Stream<T: Event> {
 }
 
 pub trait EventIterator<T: Event> {
-    async fn next(&mut self) -> Option<Recorded<T>>;
+    async fn next(&mut self) -> Option<Timed<T>>;
 }
 
 pub trait EventSubscription<T: Event> {
-    async fn next(&mut self) -> Option<Recorded<T>>;
+    async fn next(&mut self) -> Option<Timed<T>>;
     fn stop(self);
 }

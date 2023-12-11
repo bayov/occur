@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use futures_locks::RwLock;
 
-use crate::{repo, Event, Recorded, SequenceNumber};
+use crate::{repo, Event, SequenceNumber, Timed};
 
 type Id = u32;
 
@@ -40,7 +40,7 @@ type SmartVec<T> = Arc<RwLock<Vec<T>>>;
 
 #[derive(Clone)]
 pub struct Stream<T: Event> {
-    events: SmartVec<Recorded<T>>,
+    events: SmartVec<Timed<T>>,
     sender: async_channel::Sender<SequenceNumber>,
     receiver: async_channel::Receiver<SequenceNumber>,
 }
@@ -67,7 +67,7 @@ impl<T: Event> repo::Stream<T> for Stream<T> {
     async fn write(
         &mut self,
         sequence_number: SequenceNumber,
-        event: &Recorded<T>,
+        event: &Timed<T>,
     ) -> repo::Result<()> {
         let want_sequence_number =
             SequenceNumber(self.events.read().await.len());
@@ -97,14 +97,14 @@ impl<T: Event> repo::Stream<T> for Stream<T> {
 }
 
 pub struct EventIterator<T: Event> {
-    events: SmartVec<Recorded<T>>,
+    events: SmartVec<Timed<T>>,
     sequence_number: SequenceNumber,
 }
 
 impl<T: Event> EventIterator<T> {
     #[must_use]
     const fn new(
-        events: SmartVec<Recorded<T>>,
+        events: SmartVec<Timed<T>>,
         start_sequence_number: SequenceNumber,
     ) -> Self {
         Self { events, sequence_number: start_sequence_number }
@@ -112,7 +112,7 @@ impl<T: Event> EventIterator<T> {
 }
 
 impl<T: Event> repo::EventIterator<T> for EventIterator<T> {
-    async fn next(&mut self) -> Option<Recorded<T>> {
+    async fn next(&mut self) -> Option<Timed<T>> {
         let events = self.events.read().await;
         let event = events.get(self.sequence_number.0);
         if event.is_some() {
@@ -123,7 +123,7 @@ impl<T: Event> repo::EventIterator<T> for EventIterator<T> {
 }
 
 pub struct EventSubscription<T: Event> {
-    events: SmartVec<Recorded<T>>,
+    events: SmartVec<Timed<T>>,
     sequence_number: SequenceNumber,
     receiver: async_channel::Receiver<SequenceNumber>,
 }
@@ -131,7 +131,7 @@ pub struct EventSubscription<T: Event> {
 impl<T: Event> EventSubscription<T> {
     #[must_use]
     const fn new(
-        events: SmartVec<Recorded<T>>,
+        events: SmartVec<Timed<T>>,
         start_sequence_number: SequenceNumber,
         receiver: async_channel::Receiver<SequenceNumber>,
     ) -> Self {
@@ -140,7 +140,7 @@ impl<T: Event> EventSubscription<T> {
 }
 
 impl<T: Event> repo::EventSubscription<T> for EventSubscription<T> {
-    async fn next(&mut self) -> Option<Recorded<T>> {
+    async fn next(&mut self) -> Option<Timed<T>> {
         {
             let events = self.events.read().await;
             let event = events.get(self.sequence_number.0);

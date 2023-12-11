@@ -1,26 +1,56 @@
-use crate::types::{Time, TimeZone};
-use crate::{Id, SequenceNumber};
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::ops::{Index, Range};
 
+use crate::types::Time;
+use crate::{Id, Ref, Referable, SequenceNumber};
+
+/// An event that can be recorded as a fact in an event [`Stream`].
 pub trait Event: Sized + Clone + Debug + Send + Sync {}
 
+impl<T: Event> Referable for T {}
+
 #[derive(Debug, Clone)]
-pub struct Recorded<T: Event> {
+pub struct Timed<T: Event> {
     /// The time at which the event was recorded.
     pub time: Time,
     /// The recorded event.
     pub event: T,
 }
 
-pub struct Stream<'e, ID: Id, T: Event> {
-    id: ID,
-    start_sequence_number: SequenceNumber,
-    events: Cow<'e, [Recorded<T>]>,
+pub struct Recorded<'a, ID: Id, T: Event> {
+    pub stream: &'a Stream<'a, ID, T>,
+    pub sequence_number: SequenceNumber,
 }
 
-impl<'e, ID: Id, T: Event> Stream<'e, ID, T> {
+impl<'a, ID: Id, T: Event> Recorded<'a, ID, T> {
+    #[must_use]
+    pub const fn id(&self) -> &ID { &self.stream.id }
+
+    #[must_use]
+    pub fn time(&self) -> Time { self.timed_event().time }
+
+    #[must_use]
+    pub fn event(&self) -> &T { &self.timed_event().event }
+
+    #[must_use]
+    pub fn refer(&self) -> Ref<T, ID> {
+        Ref::new(self.stream.id.clone(), self.sequence_number)
+    }
+
+    #[must_use]
+    pub fn timed_event(&self) -> &Timed<T> {
+        &self.stream[self.sequence_number]
+    }
+}
+
+pub struct Stream<'a, ID: Id, T: Event> {
+    id: ID,
+    start_sequence_number: SequenceNumber,
+    events: Cow<'a, [Timed<T>]>,
+}
+
+impl<'a, ID: Id, T: Event> Stream<'a, ID, T> {
     /// Creates an empty event stream.
     #[must_use]
     pub const fn new(id: ID) -> Self {
@@ -42,7 +72,7 @@ impl<'e, ID: Id, T: Event> Stream<'e, ID, T> {
     pub const fn from_recorded_events(
         id: ID,
         start_sequence_number: SequenceNumber,
-        events: Cow<'e, [Recorded<T>]>,
+        events: Cow<'a, [Timed<T>]>,
     ) -> Self {
         Self { id, start_sequence_number, events }
     }
@@ -51,8 +81,19 @@ impl<'e, ID: Id, T: Event> Stream<'e, ID, T> {
     pub const fn id(&self) -> &ID { &self.id }
 
     /// Records the given event into the stream.
-    pub fn record(&mut self, event: T) {
-        self.events.to_mut().push(Recorded { time: TimeZone::now(), event });
+    #[allow(clippy::missing_panics_doc)] // doesn't panic
+    pub fn record(&mut self, event: T) -> Recorded<'_, ID, T> {
+        self.events.to_mut().push(Timed { time: Time::now(), event });
+        Recorded {
+            stream: self,
+            sequence_number: SequenceNumber(self.events.len() - 1),
+        }
+    }
+
+    pub fn record_array<const N: usize>(&mut self, events: [T; N]) {
+        for event in events {
+            self.record(event);
+        }
     }
 
     /// Returns the recorded events within the stream.
@@ -60,10 +101,10 @@ impl<'e, ID: Id, T: Event> Stream<'e, ID, T> {
     /// Note that this is not necessarily the full list of all recorded events.
     /// Depending on how this stream object was constructed, it might hold only
     /// a slice of events.
-    pub fn events(&self) -> &[Recorded<T>] { &self.events }
+    pub fn events(&self) -> &[Timed<T>] { &self.events }
 
     /// Same as [`Stream::events()`], but takes ownership of the events.
-    pub fn take_events(self) -> Vec<Recorded<T>> { self.events.to_vec() }
+    pub fn take_events(self) -> Vec<Timed<T>> { self.events.to_vec() }
 
     /// Returns the range of sequence numbers of events recorded within the
     /// stream.
@@ -73,23 +114,23 @@ impl<'e, ID: Id, T: Event> Stream<'e, ID, T> {
     }
 }
 
-impl<'e, ID: Id, T: Event> Index<SequenceNumber> for Stream<'e, ID, T>
+impl<'a, ID: Id, T: Event> Index<SequenceNumber> for Stream<'a, ID, T>
 where
-    [Recorded<T>]: ToOwned<Owned = Vec<Recorded<T>>>,
+    [Timed<T>]: ToOwned<Owned = Vec<Timed<T>>>,
 {
-    type Output = Recorded<T>;
+    type Output = Timed<T>;
 
     /// Returns the recorded event with sequence number `index`.
     ///
     /// # Panics
     /// If the recorded event with the given sequence number doesn't exist in
     /// the stream.
-    fn index(&self, index: SequenceNumber) -> &Recorded<T> {
+    fn index(&self, index: SequenceNumber) -> &Timed<T> {
         &self.events[index - self.start_sequence_number]
     }
 }
 
-// impl<'e, ID: Id, T: Event> Index<Range<SequenceNumber>> for Stream<'e, ID, T>
+// impl<'a, ID: Id, T: Event> Index<Range<SequenceNumber>> for Stream<'a, ID, T>
 // where
 //     [Recorded<T>]: ToOwned<Owned = Vec<Recorded<T>>>,
 // {
