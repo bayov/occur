@@ -85,7 +85,7 @@ impl<T: StreamDescriptor> Stream<T> {
     pub fn record(&mut self, event: T::Event) -> &Recorded<T> {
         self.events.push(Recorded {
             id: self.id.clone(),
-            version: Version(self.events.len()),
+            version: Version(u32::try_from(self.events.len()).unwrap()),
             time: Time::now(),
             event,
         });
@@ -129,7 +129,9 @@ impl<T: StreamDescriptor> Index<Version> for Stream<T> {
     ///
     /// # Panics
     /// If the recorded event with the given version is not found in the stream.
-    fn index(&self, index: Version) -> &Recorded<T> { &self.events[index.0] }
+    fn index(&self, index: Version) -> &Recorded<T> {
+        &self.events[usize::try_from(index.0).unwrap()]
+    }
 }
 
 // impl<'a, ID: Id, T: Event> Index<Range<Version>> for Stream<'a, ID, T>

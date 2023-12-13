@@ -14,18 +14,18 @@ pub type Time = std::time::SystemTime;
 #[derive(
     Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Display, Default,
 )]
-pub struct Version(pub usize);
+pub struct Version(pub u32);
 
-impl Add<usize> for Version {
+impl Add<u32> for Version {
     type Output = Self;
-    fn add(self, rhs: usize) -> Self::Output { Self(self.0 + rhs) }
+    fn add(self, rhs: u32) -> Self::Output { Self(self.0 + rhs) }
 }
 
-impl AddAssign<usize> for Version {
-    fn add_assign(&mut self, rhs: usize) { self.0 += rhs; }
+impl AddAssign<u32> for Version {
+    fn add_assign(&mut self, rhs: u32) { self.0 += rhs; }
 }
 
 impl Sub for Version {
-    type Output = usize;
+    type Output = u32;
     fn sub(self, rhs: Self) -> Self::Output { self.0 - rhs.0 }
 }
