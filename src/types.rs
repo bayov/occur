@@ -17,7 +17,9 @@ pub type Time = std::time::SystemTime;
 /// A recorded event is assigned a sequence number indicating its position
 /// within the event stream. The very first recorded event in a stream is
 /// assigned the sequence number 0.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Display)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Display, Default,
+)]
 pub struct SequenceNumber(pub usize);
 
 /// Adds a number to sequence number.

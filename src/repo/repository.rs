@@ -1,4 +1,4 @@
-use crate::{repo, Event, Id, SequenceNumber, Timed};
+use crate::{repo, Event, Id, SequenceNumber};
 
 pub trait Repository<T: Event> {
     type Id: Id;

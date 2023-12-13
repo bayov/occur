@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use futures_locks::RwLock;
 
-use crate::{repo, Event, SequenceNumber, Timed};
+use crate::{repo, Event, SequenceNumber};
 
 type Id = u32;
 

@@ -1,8 +1,6 @@
-use crate::{Event, Id, Referable};
+use crate::{Event, Id};
 
 pub trait Entity {
     type Id: Id;
     type Event: Event;
 }
-
-impl<T: Entity> Referable for T {}
