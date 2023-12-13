@@ -2,18 +2,18 @@ use std::fmt::Debug;
 use std::ops::{Index, Range};
 
 use crate::types::Time;
-use crate::SequenceNumber;
+use crate::Version;
 
 pub trait StreamDescriptor {
+    const NAME: &'static str;
     type Id: Clone;
     type Event;
-    fn name(&self) -> &str;
 }
 
 #[macro_export]
 macro_rules! stream_descriptor {
     {
-        name = $name:expr;
+        const NAME = $name:expr;
         type Id = $id:ty;
         type Event = $event:ty;
     } => {
@@ -21,9 +21,9 @@ macro_rules! stream_descriptor {
         pub struct StreamDescriptor;
 
         impl $crate::StreamDescriptor for StreamDescriptor {
+            const NAME: &'static str = $name;
             type Id = $id;
             type Event = $event;
-            fn name(&self) -> &str { $name }
         }
 
         pub type Ref = $crate::Ref<StreamDescriptor>;
@@ -34,12 +34,12 @@ macro_rules! stream_descriptor {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ref<T: StreamDescriptor> {
     pub id: T::Id,
-    pub sequence_number: SequenceNumber,
+    pub version: Version,
 }
 
 pub struct Recorded<T: StreamDescriptor> {
     pub id: T::Id,
-    pub sequence_number: SequenceNumber,
+    pub version: Version,
     pub time: Time,
     pub event: T::Event,
 }
@@ -47,7 +47,7 @@ pub struct Recorded<T: StreamDescriptor> {
 impl<T: StreamDescriptor> Recorded<T> {
     #[must_use]
     pub fn refer(&self) -> Ref<T> {
-        Ref { id: self.id.clone(), sequence_number: self.sequence_number }
+        Ref { id: self.id.clone(), version: self.version }
     }
 }
 
@@ -67,17 +67,17 @@ impl<T: StreamDescriptor> Stream<T> {
     /// Creates an event stream from a list of previously recorded events.
     ///
     /// The stream doesn't have to hold all recorded events. It can hold an
-    /// arbitrary slice of sequence numbers.
+    /// arbitrary slice of versions.
     ///
     /// The same stream `id` that was previously used to record the events
-    /// should be provided, as well as the `start_sequence_number` of the first
+    /// should be provided, as well as the `start_version` of the first
     /// recorded event in the given `events` list.
     // pub const fn from_recorded_events(
     //     id: ID,
-    //     start_sequence_number: SequenceNumber,
+    //     start_version: Version,
     //     events: Cow<'a, [Timed<T>]>,
     // ) -> Self {
-    //     Self { id, start_sequence_number, events }
+    //     Self { id, start_version, events }
     // }
 
     /// Records the given event into the stream.
@@ -85,7 +85,7 @@ impl<T: StreamDescriptor> Stream<T> {
     pub fn record(&mut self, event: T::Event) -> &Recorded<T> {
         self.events.push(Recorded {
             id: self.id.clone(),
-            sequence_number: SequenceNumber(self.events.len()),
+            version: Version(self.events.len()),
             time: Time::now(),
             event,
         });
@@ -108,41 +108,38 @@ impl<T: StreamDescriptor> Stream<T> {
     /// Same as [`Stream::events()`], but takes ownership of the events.
     pub fn take_events(self) -> Vec<Recorded<T>> { self.events }
 
-    /// Returns the range of sequence numbers of events recorded within the
+    /// Returns the range of versions of events recorded within the
     /// stream.
     #[allow(clippy::range_plus_one)]
     #[allow(clippy::missing_panics_doc)] // doesn't panic
-    pub fn sequence_numbers_range(&self) -> Range<SequenceNumber> {
+    pub fn versions_range(&self) -> Range<Version> {
         if self.events.is_empty() {
             return Range::default();
         }
-        let first = self.events.first().unwrap().sequence_number;
-        let last = self.events.last().unwrap().sequence_number;
+        let first = self.events.first().unwrap().version;
+        let last = self.events.last().unwrap().version;
         first..(last + 1)
     }
 }
 
-impl<T: StreamDescriptor> Index<SequenceNumber> for Stream<T> {
+impl<T: StreamDescriptor> Index<Version> for Stream<T> {
     type Output = Recorded<T>;
 
-    /// Returns the recorded event with sequence number `index`.
+    /// Returns the recorded event with version `index`.
     ///
     /// # Panics
-    /// If the recorded event with the given sequence number doesn't exist in
-    /// the stream.
-    fn index(&self, index: SequenceNumber) -> &Recorded<T> {
-        &self.events[index.0]
-    }
+    /// If the recorded event with the given version is not found in the stream.
+    fn index(&self, index: Version) -> &Recorded<T> { &self.events[index.0] }
 }
 
-// impl<'a, ID: Id, T: Event> Index<Range<SequenceNumber>> for Stream<'a, ID, T>
+// impl<'a, ID: Id, T: Event> Index<Range<Version>> for Stream<'a, ID, T>
 // where
 //     [Recorded<T>]: ToOwned<Owned = Vec<Recorded<T>>>,
 // {
 //     type Output = Self;
 //
-//     fn index(&self, index: Range<SequenceNumber>) -> &Self {
-//         let s = self.start_sequence_number;
+//     fn index(&self, index: Range<Version>) -> &Self {
+//         let s = self.start_version;
 //         Self {} & self.events[(index.start - s)..(index.end - s)]
 //     }
 // }

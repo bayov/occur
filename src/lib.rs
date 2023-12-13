@@ -20,7 +20,7 @@
 
 pub use entity::Entity;
 pub use event::{Recorded, Ref, Stream, StreamDescriptor};
-pub use types::{SequenceNumber, Time};
+pub use types::{Time, Version};
 
 mod entity;
 mod event;

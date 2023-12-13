@@ -1,6 +1,6 @@
 #![feature(assert_matches)]
 
-use event_sourcing::{SequenceNumber, Time};
+use event_sourcing::{Time, Version};
 
 use crate::example::user;
 
@@ -19,7 +19,7 @@ fn record_event_in_stream() {
     let after = Time::now();
 
     assert_eq!(admin_created.id, admin_id);
-    assert_eq!(admin_created.sequence_number, SequenceNumber(0));
+    assert_eq!(admin_created.version, Version(0));
     assert!(admin_created.time >= before);
     assert!(admin_created.time <= after);
     assert_eq!(admin_created.event, user::Event::Created {
@@ -50,10 +50,7 @@ fn record_many_events_in_stream() {
 
     let after = Time::now();
 
-    assert_eq!(
-        user_stream.sequence_numbers_range(),
-        SequenceNumber(0)..SequenceNumber(5)
-    );
+    assert_eq!(user_stream.versions_range(), Version(0)..Version(5));
 
     for event in user_stream.events() {
         assert!(event.time >= before);

@@ -8,7 +8,7 @@ use crate::example;
 pub struct Id(pub example::Id);
 
 stream_descriptor! {
-    name = "user";
+    const NAME = "user";
     type Id = Id;
     type Event = Event;
 }
