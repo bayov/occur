@@ -1,13 +1,7 @@
 use std::fmt::Debug;
-use std::hash::Hash;
 use std::ops::{Add, AddAssign, Sub};
 
 use derive_more::Display;
-
-/// An ID that uniquely identifies an event stream.
-pub trait Id: Eq + Hash + Clone + Debug + Display + Send + Sync {}
-
-impl<T: Eq + Hash + Clone + Debug + Display + Send + Sync> Id for T {}
 
 /// The time that an event was recorded at.
 pub type Time = std::time::SystemTime;

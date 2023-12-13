@@ -2,14 +2,11 @@ use std::fmt::Debug;
 use std::ops::{Index, Range};
 
 use crate::types::Time;
-use crate::{Id, SequenceNumber};
-
-/// An event that can be recorded as a fact in an event [`Stream`].
-pub trait Event: Sized + Clone + Debug + Send + Sync {}
+use crate::SequenceNumber;
 
 pub trait StreamDescriptor {
-    type Id: Id;
-    type Event: Event;
+    type Id: Clone;
+    type Event;
     fn name(&self) -> &str;
 }
 
@@ -30,7 +27,6 @@ macro_rules! stream_descriptor {
         }
 
         pub type Ref = $crate::Ref<StreamDescriptor>;
-        pub type Recorded = $crate::Recorded<StreamDescriptor>;
         pub type Stream = $crate::Stream<StreamDescriptor>;
     };
 }

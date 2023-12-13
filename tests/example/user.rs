@@ -21,5 +21,3 @@ pub enum Event {
     PromotedToAdmin { by: Ref },
     Deactivated,
 }
-
-impl event_sourcing::Event for Event {}

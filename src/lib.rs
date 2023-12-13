@@ -19,8 +19,8 @@
 #![allow(stable_features)]
 
 pub use entity::Entity;
-pub use event::{Event, Recorded, Ref, Stream, StreamDescriptor};
-pub use types::{Id, SequenceNumber, Time};
+pub use event::{Recorded, Ref, Stream, StreamDescriptor};
+pub use types::{SequenceNumber, Time};
 
 mod entity;
 mod event;
