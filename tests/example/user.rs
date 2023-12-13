@@ -21,3 +21,17 @@ pub enum Event {
     PromotedToAdmin { by: Ref },
     Deactivated,
 }
+
+pub struct Entity {
+    pub id: Id,
+    pub name: String,
+    pub is_admin: bool,
+    pub promoted_to_admin_by: Option<Id>,
+    pub friends: Vec<Id>,
+    pub is_deactivated: bool,
+}
+
+impl event_sourcing::Entity for Entity {
+    type Id = Id;
+    type Event = Event;
+}
