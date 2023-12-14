@@ -13,8 +13,10 @@ fn record_event_in_stream() {
 
     let before = Time::now();
 
-    let admin_created = admin_stream
-        .record(user::Event::Created { name: "admin".to_owned(), admin: true });
+    let admin_created = admin_stream.record(user::Event::Created {
+        name: "admin".to_owned(),
+        is_admin: true,
+    });
 
     let after = Time::now();
 
@@ -24,7 +26,7 @@ fn record_event_in_stream() {
     assert!(admin_created.time <= after);
     assert_eq!(admin_created.event, user::Event::Created {
         name: "admin".to_owned(),
-        admin: true,
+        is_admin: true,
     });
 }
 
@@ -32,19 +34,15 @@ fn record_event_in_stream() {
 fn record_many_events_in_stream() {
     let admin_id = user::Id(42);
     let user_id = user::Id(43);
-    let mut admin_stream = user::Stream::new(admin_id);
     let mut user_stream = user::Stream::new(user_id);
-
-    let admin_created = admin_stream
-        .record(user::Event::Created { name: "admin".to_owned(), admin: true });
 
     let before = Time::now();
 
     user_stream.record_array([
-        user::Event::Created { name: "aki".to_owned(), admin: false },
+        user::Event::Created { name: "aki".to_owned(), is_admin: false },
         user::Event::Renamed { new_name: "bayov".to_owned() },
-        user::Event::Befriended { user: admin_created.refer() },
-        user::Event::PromotedToAdmin { by: admin_created.refer() },
+        user::Event::Befriended { user: admin_id },
+        user::Event::PromotedToAdmin { by: admin_id },
         user::Event::Deactivated,
     ]);
 

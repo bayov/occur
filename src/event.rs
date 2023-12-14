@@ -8,6 +8,7 @@ pub trait StreamDescriptor {
     const NAME: &'static str;
     type Id: Clone;
     type Event;
+    type Error;
 }
 
 #[macro_export]
@@ -16,6 +17,7 @@ macro_rules! stream_descriptor {
         const NAME = $name:expr;
         type Id = $id:ty;
         type Event = $event:ty;
+        type Error = $error:ty;
     } => {
         #[derive(Clone, Debug, PartialEq, Eq)]
         pub struct StreamDescriptor;
@@ -24,6 +26,7 @@ macro_rules! stream_descriptor {
             const NAME: &'static str = $name;
             type Id = $id;
             type Event = $event;
+            type Error = $error;
         }
 
         pub type Ref = $crate::Ref<StreamDescriptor>;
