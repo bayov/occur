@@ -1,12 +1,12 @@
 use std::fmt::Debug;
 use std::ops::{Index, Range};
 
-use crate::types::Time;
-use crate::Version;
+use crate::{Time, Version};
 
 pub trait StreamDescriptor {
     const NAME: &'static str;
     type Id: Clone;
+    type Time: Time;
     type Event;
     type Error;
 }
@@ -16,6 +16,7 @@ macro_rules! stream_descriptor {
     {
         const NAME = $name:expr;
         type Id = $id:ty;
+        type Time = $time:ty;
         type Event = $event:ty;
         type Error = $error:ty;
     } => {
@@ -25,6 +26,7 @@ macro_rules! stream_descriptor {
         impl $crate::StreamDescriptor for StreamDescriptor {
             const NAME: &'static str = $name;
             type Id = $id;
+            type Time = $time;
             type Event = $event;
             type Error = $error;
         }
@@ -43,7 +45,7 @@ pub struct Ref<T: StreamDescriptor> {
 pub struct Recorded<T: StreamDescriptor> {
     pub id: T::Id,
     pub version: Version,
-    pub time: Time,
+    pub time: T::Time,
     pub event: T::Event,
 }
 

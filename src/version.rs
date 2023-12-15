@@ -3,9 +3,6 @@ use std::ops::{Add, AddAssign, Sub};
 
 use derive_more::Display;
 
-/// The time that an event was recorded at.
-pub type Time = std::time::SystemTime;
-
 /// Version is the sequence number of a recorded event.
 ///
 /// A recorded event is assigned a version indicating its position within the

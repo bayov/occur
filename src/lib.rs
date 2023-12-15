@@ -20,9 +20,11 @@
 
 pub use entity::Entity;
 pub use event::{Recorded, Ref, Stream, StreamDescriptor};
-pub use types::{Time, Version};
+pub use time::Time;
+pub use version::Version;
 
 mod entity;
 mod event;
 // pub mod repo;
-mod types;
+mod time;
+mod version;

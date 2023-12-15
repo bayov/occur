@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use derive_more::Display;
 
 use event_sourcing::stream_descriptor;
@@ -10,6 +12,7 @@ pub struct Id(pub example::Id);
 stream_descriptor! {
     const NAME = "user";
     type Id = Id;
+    type Time = SystemTime;
     type Event = Event;
     type Error = Error;
 }
