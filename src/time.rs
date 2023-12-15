@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-pub trait Time {
+pub trait Time: Clone + Eq {
     fn now() -> Self;
 }
 

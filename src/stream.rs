@@ -5,7 +5,7 @@ use crate::{RecordedEvent, Time, Version};
 #[allow(clippy::module_name_repetitions)] // exported from crate root
 pub trait StreamDescription {
     const NAME: &'static str;
-    type Id: Clone;
+    type Id: Clone + Eq;
     type Time: Time;
     type Event;
 }

@@ -1,49 +1,17 @@
 use std::fmt::{Debug, Formatter};
 
+use impl_tools::autoimpl;
+
 use crate::{StreamDescription, Version};
 
+#[autoimpl(Clone where T::Event: Clone)]
+#[autoimpl(PartialEq where T::Event: PartialEq)]
+#[autoimpl(Eq where T::Event: Eq)]
 pub struct RecordedEvent<T: StreamDescription> {
     pub id: T::Id,
     pub version: Version,
     pub time: T::Time,
     pub event: T::Event,
-}
-
-impl<T: StreamDescription> Clone for RecordedEvent<T>
-where
-    T::Time: Clone,
-    T::Event: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            version: self.version,
-            time: self.time.clone(),
-            event: self.event.clone(),
-        }
-    }
-}
-
-impl<T: StreamDescription> PartialEq for RecordedEvent<T>
-where
-    T::Id: PartialEq,
-    T::Time: PartialEq,
-    T::Event: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-            && self.version == other.version
-            && self.time == other.time
-            && self.event == other.event
-    }
-}
-
-impl<T: StreamDescription> Eq for RecordedEvent<T>
-where
-    T::Id: PartialEq,
-    T::Time: PartialEq,
-    T::Event: PartialEq,
-{
 }
 
 #[allow(clippy::missing_fields_in_debug)] // false positive
