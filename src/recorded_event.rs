@@ -1,15 +1,15 @@
 use std::fmt::{Debug, Formatter};
 
-use crate::{StreamDescriptor, Version};
+use crate::{StreamDescription, Version};
 
-pub struct RecordedEvent<T: StreamDescriptor> {
+pub struct RecordedEvent<T: StreamDescription> {
     pub id: T::Id,
     pub version: Version,
     pub time: T::Time,
     pub event: T::Event,
 }
 
-impl<T: StreamDescriptor> Clone for RecordedEvent<T>
+impl<T: StreamDescription> Clone for RecordedEvent<T>
 where
     T::Time: Clone,
     T::Event: Clone,
@@ -24,7 +24,7 @@ where
     }
 }
 
-impl<T: StreamDescriptor> PartialEq for RecordedEvent<T>
+impl<T: StreamDescription> PartialEq for RecordedEvent<T>
 where
     T::Id: PartialEq,
     T::Time: PartialEq,
@@ -38,7 +38,7 @@ where
     }
 }
 
-impl<T: StreamDescriptor> Eq for RecordedEvent<T>
+impl<T: StreamDescription> Eq for RecordedEvent<T>
 where
     T::Id: PartialEq,
     T::Time: PartialEq,
@@ -47,7 +47,7 @@ where
 }
 
 #[allow(clippy::missing_fields_in_debug)] // false positive
-impl<T: StreamDescriptor> Debug for RecordedEvent<T>
+impl<T: StreamDescription> Debug for RecordedEvent<T>
 where
     T::Id: Debug,
     T::Time: Debug,

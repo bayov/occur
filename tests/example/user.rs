@@ -7,17 +7,17 @@ use crate::example;
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Display)]
 pub struct Id(pub example::Id);
 
-pub struct StreamDescriptor;
+pub struct StreamDescription;
 
-impl event_sourcing::StreamDescriptor for StreamDescriptor {
+impl event_sourcing::StreamDescription for StreamDescription {
     const NAME: &'static str = "user";
     type Id = Id;
     type Time = SystemTime;
     type Event = Event;
 }
 
-pub type Stream = event_sourcing::Stream<StreamDescriptor>;
-pub type Ref = event_sourcing::Ref<StreamDescriptor>;
+pub type Stream = event_sourcing::Stream<StreamDescription>;
+pub type Ref = event_sourcing::Ref<StreamDescription>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
@@ -38,7 +38,7 @@ pub struct Entity {
     pub is_deactivated: bool,
 }
 
-impl event_sourcing::Entity<StreamDescriptor> for Entity {
+impl event_sourcing::Entity<StreamDescription> for Entity {
     fn new(id: Id, event: Event) -> Option<Self> {
         match event {
             Event::Created { name, is_admin } => Some(Entity {

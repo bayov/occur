@@ -1,6 +1,6 @@
-use crate::StreamDescriptor;
+use crate::StreamDescription;
 
-pub trait Entity<T: StreamDescriptor> {
+pub trait Entity<T: StreamDescription> {
     fn new(id: T::Id, event: T::Event) -> Option<Self>
     where
         Self: Sized;

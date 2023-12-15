@@ -2,19 +2,20 @@ use std::ops::{Index, Range};
 
 use crate::{RecordedEvent, Time, Version};
 
-pub trait StreamDescriptor {
+#[allow(clippy::module_name_repetitions)] // exported from crate root
+pub trait StreamDescription {
     const NAME: &'static str;
     type Id: Clone;
     type Time: Time;
     type Event;
 }
 
-pub struct Stream<T: StreamDescriptor> {
+pub struct Stream<T: StreamDescription> {
     id: T::Id,
     events: Vec<RecordedEvent<T>>,
 }
 
-impl<T: StreamDescriptor> Stream<T> {
+impl<T: StreamDescription> Stream<T> {
     /// Creates an empty event stream.
     #[must_use]
     pub fn new(id: T::Id) -> Self { Self { id, events: Vec::default() } }
@@ -80,7 +81,7 @@ impl<T: StreamDescriptor> Stream<T> {
     }
 }
 
-impl<T: StreamDescriptor> Index<Version> for Stream<T> {
+impl<T: StreamDescription> Index<Version> for Stream<T> {
     type Output = RecordedEvent<T>;
 
     /// Returns the recorded event with version `index`.

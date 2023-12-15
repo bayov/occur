@@ -1,32 +1,32 @@
 use std::fmt::{Debug, Formatter};
 
-use crate::{RecordedEvent, StreamDescriptor, Version};
+use crate::{RecordedEvent, StreamDescription, Version};
 
-pub struct Ref<T: StreamDescriptor> {
+pub struct Ref<T: StreamDescription> {
     pub id: T::Id,
     pub version: Version,
 }
 
-impl<T: StreamDescriptor> Ref<T> {
+impl<T: StreamDescription> Ref<T> {
     #[must_use]
     pub const fn new(id: T::Id, version: Version) -> Self {
         Self { id, version }
     }
 }
 
-impl<T: StreamDescriptor> From<&RecordedEvent<T>> for Ref<T> {
+impl<T: StreamDescription> From<&RecordedEvent<T>> for Ref<T> {
     fn from(r: &RecordedEvent<T>) -> Self {
         Self { id: r.id.clone(), version: r.version }
     }
 }
 
-impl<T: StreamDescriptor> Clone for Ref<T> {
+impl<T: StreamDescription> Clone for Ref<T> {
     fn clone(&self) -> Self {
         Self { id: self.id.clone(), version: self.version }
     }
 }
 
-impl<T: StreamDescriptor> Debug for Ref<T>
+impl<T: StreamDescription> Debug for Ref<T>
 where
     T::Id: Debug,
 {
@@ -37,7 +37,7 @@ where
     }
 }
 
-impl<T: StreamDescriptor> PartialEq for Ref<T>
+impl<T: StreamDescription> PartialEq for Ref<T>
 where
     T::Id: PartialEq,
 {
@@ -46,4 +46,4 @@ where
     }
 }
 
-impl<T: StreamDescriptor> Eq for Ref<T> where T::Id: Eq {}
+impl<T: StreamDescription> Eq for Ref<T> where T::Id: Eq {}

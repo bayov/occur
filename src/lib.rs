@@ -20,14 +20,14 @@
 #![allow(stable_features)]
 
 pub use entity::Entity;
-pub use event::{Stream, StreamDescriptor};
 pub use recorded_event::RecordedEvent;
 pub use ref_::Ref;
+pub use stream::{Stream, StreamDescription};
 pub use time::Time;
 pub use version::Version;
 
 mod entity;
-mod event;
+mod stream;
 // pub mod repo;
 mod recorded_event;
 mod ref_;
