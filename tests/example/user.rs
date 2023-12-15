@@ -14,7 +14,6 @@ impl event_sourcing::StreamDescriptor for StreamDescriptor {
     type Id = Id;
     type Time = SystemTime;
     type Event = Event;
-    type Error = Error;
 }
 
 pub type Stream = event_sourcing::Stream<StreamDescriptor>;
@@ -29,6 +28,7 @@ pub enum Event {
     Deactivated,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Entity {
     pub id: Id,
     pub name: String,
@@ -38,18 +38,10 @@ pub struct Entity {
     pub is_deactivated: bool,
 }
 
-pub enum Error {
-    NonCreationEvent,
-    AlreadyCreated,
-    AlreadyFriends,
-    AlreadyAdmin,
-    AlreadyDeactivated,
-}
-
 impl event_sourcing::Entity<StreamDescriptor> for Entity {
-    fn new(id: Id, event: Event) -> Result<Self, Error> {
+    fn new(id: Id, event: Event) -> Option<Self> {
         match event {
-            Event::Created { name, is_admin } => Ok(Entity {
+            Event::Created { name, is_admin } => Some(Entity {
                 id,
                 name,
                 is_admin,
@@ -57,45 +49,36 @@ impl event_sourcing::Entity<StreamDescriptor> for Entity {
                 friends: Vec::default(),
                 is_deactivated: false,
             }),
-            _ => Err(Error::NonCreationEvent),
+            _ => None,
         }
     }
 
-    fn apply(mut self, event: Event) -> Result<Self, Error> {
+    fn apply(mut self, event: Event) -> Self {
         match event {
-            Event::Created { .. } => Err(Error::AlreadyCreated),
+            Event::Created { .. } => self,
 
-            Event::Renamed { new_name } => {
-                Ok(Entity { name: new_name, ..self })
-            }
+            Event::Renamed { new_name } => Entity { name: new_name, ..self },
 
             Event::Befriended { user } => {
-                if self.friends.contains(&user) {
-                    Err(Error::AlreadyFriends)
-                } else {
+                if !self.friends.contains(&user) {
                     self.friends.push(user);
-                    Ok(self)
                 }
+                self
             }
 
             Event::PromotedToAdmin { by: admin } => {
-                if self.is_admin {
-                    Err(Error::AlreadyAdmin)
-                } else {
-                    Ok(Entity {
-                        is_admin: true,
-                        promoted_to_admin_by: Some(admin.id),
-                        ..self
-                    })
+                if !self.is_admin {
+                    self.is_admin = true;
+                    self.promoted_to_admin_by = Some(admin.id);
                 }
+                self
             }
 
             Event::Deactivated => {
-                if self.is_deactivated {
-                    Err(Error::AlreadyDeactivated)
-                } else {
-                    Ok(Entity { is_deactivated: true, ..self })
+                if !self.is_deactivated {
+                    self.is_deactivated = true;
                 }
+                self
             }
         }
     }

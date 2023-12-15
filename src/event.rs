@@ -1,25 +1,17 @@
 use std::ops::{Index, Range};
 
-use crate::{Time, Version};
+use crate::{RecordedEvent, Time, Version};
 
 pub trait StreamDescriptor {
     const NAME: &'static str;
     type Id: Clone;
     type Time: Time;
     type Event;
-    type Error;
-}
-
-pub struct Recorded<T: StreamDescriptor> {
-    pub id: T::Id,
-    pub version: Version,
-    pub time: T::Time,
-    pub event: T::Event,
 }
 
 pub struct Stream<T: StreamDescriptor> {
     id: T::Id,
-    events: Vec<Recorded<T>>,
+    events: Vec<RecordedEvent<T>>,
 }
 
 impl<T: StreamDescriptor> Stream<T> {
@@ -48,8 +40,8 @@ impl<T: StreamDescriptor> Stream<T> {
 
     /// Records the given event into the stream.
     #[allow(clippy::missing_panics_doc)] // doesn't panic
-    pub fn record(&mut self, event: T::Event) -> &Recorded<T> {
-        self.events.push(Recorded {
+    pub fn record(&mut self, event: T::Event) -> &RecordedEvent<T> {
+        self.events.push(RecordedEvent {
             id: self.id.clone(),
             version: Version(u32::try_from(self.events.len()).unwrap()),
             time: Time::now(),
@@ -69,10 +61,10 @@ impl<T: StreamDescriptor> Stream<T> {
     /// Note that this is not necessarily the full list of all recorded events.
     /// Depending on how this stream object was constructed, it might hold only
     /// a slice of events.
-    pub fn events(&self) -> &[Recorded<T>] { &self.events }
+    pub fn events(&self) -> &[RecordedEvent<T>] { &self.events }
 
     /// Same as [`Stream::events()`], but takes ownership of the events.
-    pub fn take_events(self) -> Vec<Recorded<T>> { self.events }
+    pub fn take_events(self) -> Vec<RecordedEvent<T>> { self.events }
 
     /// Returns the range of versions of events recorded within the
     /// stream.
@@ -89,20 +81,20 @@ impl<T: StreamDescriptor> Stream<T> {
 }
 
 impl<T: StreamDescriptor> Index<Version> for Stream<T> {
-    type Output = Recorded<T>;
+    type Output = RecordedEvent<T>;
 
     /// Returns the recorded event with version `index`.
     ///
     /// # Panics
     /// If the recorded event with the given version is not found in the stream.
-    fn index(&self, index: Version) -> &Recorded<T> {
+    fn index(&self, index: Version) -> &RecordedEvent<T> {
         &self.events[usize::try_from(index.0).unwrap()]
     }
 }
 
 // impl<'a, ID: Id, T: Event> Index<Range<Version>> for Stream<'a, ID, T>
 // where
-//     [Recorded<T>]: ToOwned<Owned = Vec<Recorded<T>>>,
+//     [RecordedEvent<T>]: ToOwned<Owned = Vec<RecordedEvent<T>>>,
 // {
 //     type Output = Self;
 //

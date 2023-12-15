@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Formatter};
 
-use crate::{Recorded, StreamDescriptor, Version};
+use crate::{RecordedEvent, StreamDescriptor, Version};
 
 pub struct Ref<T: StreamDescriptor> {
     pub id: T::Id,
@@ -14,8 +14,8 @@ impl<T: StreamDescriptor> Ref<T> {
     }
 }
 
-impl<T: StreamDescriptor> From<&Recorded<T>> for Ref<T> {
-    fn from(r: &Recorded<T>) -> Self {
+impl<T: StreamDescriptor> From<&RecordedEvent<T>> for Ref<T> {
+    fn from(r: &RecordedEvent<T>) -> Self {
         Self { id: r.id.clone(), version: r.version }
     }
 }

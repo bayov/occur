@@ -6,7 +6,8 @@
     return_position_impl_trait_in_trait,
     error_generic_member_access,
     marker_trait_attr,
-    associated_type_defaults
+    associated_type_defaults,
+    debug_closure_helpers
 )]
 #![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
 #![allow(async_fn_in_trait)]
@@ -19,7 +20,8 @@
 #![allow(stable_features)]
 
 pub use entity::Entity;
-pub use event::{Recorded, Stream, StreamDescriptor};
+pub use event::{Stream, StreamDescriptor};
+pub use recorded_event::RecordedEvent;
 pub use ref_::Ref;
 pub use time::Time;
 pub use version::Version;
@@ -27,6 +29,7 @@ pub use version::Version;
 mod entity;
 mod event;
 // pub mod repo;
+mod recorded_event;
 mod ref_;
 mod time;
 mod version;

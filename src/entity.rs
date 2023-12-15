@@ -1,11 +1,11 @@
 use crate::StreamDescriptor;
 
 pub trait Entity<T: StreamDescriptor> {
-    fn new(id: T::Id, event: T::Event) -> Result<Self, T::Error>
+    fn new(id: T::Id, event: T::Event) -> Option<Self>
     where
         Self: Sized;
 
-    fn apply(self, event: T::Event) -> Result<Self, T::Error>
+    fn apply(self, event: T::Event) -> Self
     where
         Self: Sized;
 }
