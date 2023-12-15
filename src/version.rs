@@ -3,13 +3,13 @@ use std::ops::{Add, AddAssign, Sub};
 
 use derive_more::Display;
 
-/// Version is the sequence number of a recorded event.
+/// Version is a sequence number of a recorded event.
 ///
 /// A recorded event is assigned a version indicating its position within the
 /// event stream. The very first recorded event in a stream is assigned
 /// version 0.
 #[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Display, Default,
+    Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug, Display,
 )]
 pub struct Version(pub u32);
 

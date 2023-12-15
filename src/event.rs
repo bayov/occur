@@ -1,4 +1,3 @@
-use std::fmt::Debug;
 use std::ops::{Index, Range};
 
 use crate::{Time, Version};
@@ -20,7 +19,6 @@ macro_rules! stream_descriptor {
         type Event = $event:ty;
         type Error = $error:ty;
     } => {
-        #[derive(Clone, Debug, PartialEq, Eq)]
         pub struct StreamDescriptor;
 
         impl $crate::StreamDescriptor for StreamDescriptor {
@@ -36,24 +34,11 @@ macro_rules! stream_descriptor {
     };
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Ref<T: StreamDescriptor> {
-    pub id: T::Id,
-    pub version: Version,
-}
-
 pub struct Recorded<T: StreamDescriptor> {
     pub id: T::Id,
     pub version: Version,
     pub time: T::Time,
     pub event: T::Event,
-}
-
-impl<T: StreamDescriptor> Recorded<T> {
-    #[must_use]
-    pub fn refer(&self) -> Ref<T> {
-        Ref { id: self.id.clone(), version: self.version }
-    }
 }
 
 pub struct Stream<T: StreamDescriptor> {
