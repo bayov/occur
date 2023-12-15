@@ -2,20 +2,23 @@ use std::time::SystemTime;
 
 use derive_more::Display;
 
-use event_sourcing::stream_descriptor;
-
 use crate::example;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Display)]
 pub struct Id(pub example::Id);
 
-stream_descriptor! {
-    const NAME = "user";
+pub struct StreamDescriptor;
+
+impl event_sourcing::StreamDescriptor for StreamDescriptor {
+    const NAME: &'static str = "user";
     type Id = Id;
     type Time = SystemTime;
     type Event = Event;
     type Error = Error;
 }
+
+pub type Stream = event_sourcing::Stream<StreamDescriptor>;
+pub type Ref = event_sourcing::Ref<StreamDescriptor>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {

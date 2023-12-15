@@ -10,30 +10,6 @@ pub trait StreamDescriptor {
     type Error;
 }
 
-#[macro_export]
-macro_rules! stream_descriptor {
-    {
-        const NAME = $name:expr;
-        type Id = $id:ty;
-        type Time = $time:ty;
-        type Event = $event:ty;
-        type Error = $error:ty;
-    } => {
-        pub struct StreamDescriptor;
-
-        impl $crate::StreamDescriptor for StreamDescriptor {
-            const NAME: &'static str = $name;
-            type Id = $id;
-            type Time = $time;
-            type Event = $event;
-            type Error = $error;
-        }
-
-        pub type Ref = $crate::Ref<StreamDescriptor>;
-        pub type Stream = $crate::Stream<StreamDescriptor>;
-    };
-}
-
 pub struct Recorded<T: StreamDescriptor> {
     pub id: T::Id,
     pub version: Version,
