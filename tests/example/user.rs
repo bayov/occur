@@ -22,7 +22,7 @@ pub enum Event {
     Created { name: String, is_admin: bool },
     Renamed { new_name: String },
     Befriended { user: Id },
-    PromotedToAdmin { by: Id },
+    PromotedToAdmin { by: Ref },
     Deactivated,
 }
 
@@ -81,7 +81,7 @@ impl event_sourcing::Entity<StreamDescriptor> for Entity {
                 } else {
                     Ok(Entity {
                         is_admin: true,
-                        promoted_to_admin_by: Some(admin),
+                        promoted_to_admin_by: Some(admin.id),
                         ..self
                     })
                 }

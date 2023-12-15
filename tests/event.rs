@@ -33,6 +33,12 @@ fn record_event_in_stream() {
 #[test]
 fn record_many_events_in_stream() {
     let admin_id = user::Id(42);
+    let mut admin_stream = user::Stream::new(admin_id);
+    let admin_created = admin_stream.record(user::Event::Created {
+        name: "admin".to_owned(),
+        is_admin: true,
+    });
+
     let user_id = user::Id(43);
     let mut user_stream = user::Stream::new(user_id);
 
@@ -42,7 +48,7 @@ fn record_many_events_in_stream() {
         user::Event::Created { name: "aki".to_owned(), is_admin: false },
         user::Event::Renamed { new_name: "bayov".to_owned() },
         user::Event::Befriended { user: admin_id },
-        user::Event::PromotedToAdmin { by: admin_id },
+        user::Event::PromotedToAdmin { by: admin_created.into() },
         user::Event::Deactivated,
     ]);
 
