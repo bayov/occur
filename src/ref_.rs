@@ -1,7 +1,14 @@
+#![allow(clippy::derive_partial_eq_without_eq)] // false positive
+
 use std::fmt::{Debug, Formatter};
+
+use impl_tools::autoimpl;
 
 use crate::{RecordedEvent, StreamDescription, Version};
 
+#[autoimpl(Clone where T::Event: Clone)]
+#[autoimpl(PartialEq where T::Event: PartialEq)]
+#[autoimpl(Eq where T::Event: Eq)]
 pub struct Ref<T: StreamDescription> {
     pub id: T::Id,
     pub version: Version,
@@ -20,30 +27,15 @@ impl<T: StreamDescription> From<&RecordedEvent<T>> for Ref<T> {
     }
 }
 
-impl<T: StreamDescription> Clone for Ref<T> {
-    fn clone(&self) -> Self {
-        Self { id: self.id.clone(), version: self.version }
-    }
-}
-
+#[allow(clippy::missing_fields_in_debug)] // false positive
 impl<T: StreamDescription> Debug for Ref<T>
 where
     T::Id: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let id = &self.id;
-        let version = &self.version;
-        write!(f, "Ref {{ id = {id:?}, version = {version:?} }}")
+        f.debug_struct(&format!(r#"Ref<"{}">"#, T::NAME))
+            .field_with("id", |f| write!(f, "{:?}", self.id))
+            .field("version", &self.version.0)
+            .finish()
     }
 }
-
-impl<T: StreamDescription> PartialEq for Ref<T>
-where
-    T::Id: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && self.version == other.version
-    }
-}
-
-impl<T: StreamDescription> Eq for Ref<T> where T::Id: Eq {}
