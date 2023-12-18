@@ -33,6 +33,7 @@ fn new_entity() {
             promoted_to_admin_by: None,
             friends: Vec::default(),
             is_deactivated: false,
+            deactivation_reason: None,
         })
     );
 

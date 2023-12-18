@@ -1,8 +1,9 @@
-use std::time::SystemTime;
+use std::collections::HashSet;
 
 use derive_more::Display;
 
 use crate::example;
+use crate::example::old_revision;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Display)]
 pub struct Id(pub example::Id);
@@ -12,8 +13,8 @@ pub struct StreamDescription;
 impl event_sourcing::StreamDescription for StreamDescription {
     const NAME: &'static str = "user";
     type Id = Id;
-    type Time = SystemTime;
     type Event = Event;
+    type RevisionConverter = old_revision::user::RevisionConverter;
 }
 
 pub type Stream = event_sourcing::Stream<StreamDescription>;
@@ -25,7 +26,31 @@ pub enum Event {
     Renamed { new_name: String },
     Befriended { user: Id },
     PromotedToAdmin { by: Ref },
-    Deactivated,
+    Deactivated { reason: String },
+}
+
+impl event_sourcing::Event for Event {
+    fn supported_revisions() -> HashSet<Self::Revision> {
+        HashSet::from([
+            Self::Revision::new("Created", 0),
+            Self::Revision::new("Renamed", 0),
+            Self::Revision::new("Befriended", 0),
+            Self::Revision::new("PromotedToAdmin", 0),
+            Self::Revision::new("Deactivated", 1),
+        ])
+    }
+
+    fn revision(&self) -> Self::Revision {
+        match &self {
+            Event::Created { .. } => Self::Revision::new("Created", 0),
+            Event::Renamed { .. } => Self::Revision::new("Renamed", 0),
+            Event::Befriended { .. } => Self::Revision::new("Befriended", 0),
+            Event::PromotedToAdmin { .. } => {
+                Self::Revision::new("PromotedToAdmin", 0)
+            }
+            Event::Deactivated { .. } => Self::Revision::new("Deactivated", 1),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -36,6 +61,7 @@ pub struct Entity {
     pub promoted_to_admin_by: Option<Id>,
     pub friends: Vec<Id>,
     pub is_deactivated: bool,
+    pub deactivation_reason: Option<String>,
 }
 
 impl event_sourcing::Entity<StreamDescription> for Entity {
@@ -48,6 +74,7 @@ impl event_sourcing::Entity<StreamDescription> for Entity {
                 promoted_to_admin_by: None,
                 friends: Vec::default(),
                 is_deactivated: false,
+                deactivation_reason: None,
             }),
             _ => None,
         }
@@ -74,9 +101,10 @@ impl event_sourcing::Entity<StreamDescription> for Entity {
                 self
             }
 
-            Event::Deactivated => {
+            Event::Deactivated { reason } => {
                 if !self.is_deactivated {
                     self.is_deactivated = true;
+                    self.deactivation_reason = Some(reason);
                 }
                 self
             }

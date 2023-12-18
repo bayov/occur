@@ -4,4 +4,5 @@
 
 pub(crate) type Id = u32;
 
+pub mod old_revision;
 pub mod user;

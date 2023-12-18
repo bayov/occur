@@ -2,9 +2,10 @@
 
 use rstest::rstest;
 
-use event_sourcing::{Time, Version};
+use event_sourcing::revision::Converter;
+use event_sourcing::{revision, Event, Time, Version};
 
-use crate::example::user;
+use crate::example::{old_revision, user};
 use crate::fixture::user::{admin_created, admin_id, admin_stream};
 
 mod example;
@@ -57,7 +58,7 @@ fn record_many_events_in_stream(admin_created: user::Event) {
         user::Event::Renamed { new_name: "bayov".to_owned() },
         user::Event::Befriended { user: admin_id },
         user::Event::PromotedToAdmin { by: admin_created.into() },
-        user::Event::Deactivated,
+        user::Event::Deactivated { reason: "bot".to_owned() },
     ]);
 
     let after = Time::now();
@@ -68,4 +69,23 @@ fn record_many_events_in_stream(admin_created: user::Event) {
         assert!(event.time >= before);
         assert!(event.time <= after);
     }
+}
+
+#[test]
+fn convert_old_event() {
+    let old_event = old_revision::user::OldEvent::Deactivated;
+    let new_event =
+        old_revision::user::RevisionConverter::convert_to_new(old_event);
+    assert_eq!(new_event, user::Event::Deactivated { reason: "".to_owned() });
+}
+
+#[test]
+fn all_supported_revisions() {
+    assert_eq!(
+        revision::supported_by_stream::<user::StreamDescription>(),
+        user::Event::supported_revisions()
+            .union(&old_revision::user::OldEvent::supported_revisions())
+            .cloned()
+            .collect()
+    );
 }

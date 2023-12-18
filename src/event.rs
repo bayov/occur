@@ -1,0 +1,24 @@
+use std::collections::HashSet;
+use std::marker::PhantomData;
+
+use crate::{revision, Revision};
+
+pub trait Event {
+    type Revision: Revision = revision::TypeAndNumber;
+
+    fn supported_revisions() -> HashSet<Self::Revision>;
+
+    fn revision(&self) -> Self::Revision;
+}
+
+pub struct Unit<R: Revision>(PhantomData<R>);
+
+impl<R: Revision> Event for Unit<R> {
+    type Revision = R;
+
+    fn supported_revisions() -> HashSet<Self::Revision> { HashSet::default() }
+
+    fn revision(&self) -> Self::Revision {
+        panic!("Empty::revision must never be called")
+    }
+}

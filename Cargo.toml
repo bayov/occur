@@ -15,6 +15,7 @@ derive_more = { version = "1.0.0-beta.6", features = ["display", "index"] }
 futures = { version = "0.3.29", features = ["thread-pool"] }
 futures-locks = "0.7.1"
 impl-tools = "0.10.0"
+indoc = "2.0.4"
 thiserror = "1.0.50"
 
 [features]
