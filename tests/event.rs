@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use event_sourcing::revision::Converter;
-use event_sourcing::{revision, Event, Time, Version};
+use event_sourcing::{revision, CommitNumber, Event, Time};
 use rstest::rstest;
 
 use crate::example::{old_revision, user};
@@ -18,7 +18,7 @@ fn create_stream() {
     let stream = user::Stream::new(id);
 
     assert_eq!(stream.id(), &id);
-    assert_eq!(stream.versions_range(), Version(0)..Version(0));
+    assert_eq!(stream.commit_numbers_range(), CommitNumber(0)..CommitNumber(0));
     assert_eq!(stream.events(), vec![]);
 }
 
@@ -34,7 +34,7 @@ fn record_event_in_stream(admin_id: user::Id, mut admin_stream: user::Stream) {
     let after = Time::now();
 
     assert_eq!(admin_created.id, admin_id);
-    assert_eq!(admin_created.version, Version(0));
+    assert_eq!(admin_created.commit_number, CommitNumber(0));
     assert!(admin_created.time >= before);
     assert!(admin_created.time <= after);
     assert_eq!(admin_created.event, user::Event::Created {
@@ -64,7 +64,10 @@ fn record_many_events_in_stream(admin_created: user::Event) {
 
     let after = Time::now();
 
-    assert_eq!(user_stream.versions_range(), Version(0)..Version(5));
+    assert_eq!(
+        user_stream.commit_numbers_range(),
+        CommitNumber(0)..CommitNumber(5)
+    );
 
     for event in user_stream.events() {
         assert!(event.time >= before);

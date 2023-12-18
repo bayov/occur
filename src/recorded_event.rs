@@ -2,14 +2,14 @@ use std::fmt::{Debug, Formatter};
 
 use impl_tools::autoimpl;
 
-use crate::{StreamDescription, Version};
+use crate::{CommitNumber, StreamDescription};
 
 #[autoimpl(Clone where T::Event: Clone)]
 #[autoimpl(PartialEq where T::Event: PartialEq)]
 #[autoimpl(Eq where T::Event: Eq)]
 pub struct RecordedEvent<T: StreamDescription> {
     pub id: T::Id,
-    pub version: Version,
+    pub commit_number: CommitNumber,
     pub time: T::Time,
     pub event: T::Event,
 }
@@ -24,7 +24,7 @@ where
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct(&format!(r#"RecordedEvent<"{}">"#, T::NAME))
             .field_with("id", |f| write!(f, "{:?}", self.id))
-            .field("version", &self.version.0)
+            .field("commit_number", &self.commit_number.0)
             .field_with("time", |f| write!(f, "{:?}", self.time))
             .field("event", &self.event)
             .finish()

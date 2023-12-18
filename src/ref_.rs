@@ -4,26 +4,26 @@ use std::fmt::{Debug, Formatter};
 
 use impl_tools::autoimpl;
 
-use crate::{RecordedEvent, StreamDescription, Version};
+use crate::{CommitNumber, RecordedEvent, StreamDescription};
 
 #[autoimpl(Clone where T::Event: Clone)]
 #[autoimpl(PartialEq where T::Event: PartialEq)]
 #[autoimpl(Eq where T::Event: Eq)]
 pub struct Ref<T: StreamDescription> {
     pub id: T::Id,
-    pub version: Version,
+    pub commit_number: CommitNumber,
 }
 
 impl<T: StreamDescription> Ref<T> {
     #[must_use]
-    pub const fn new(id: T::Id, version: Version) -> Self {
-        Self { id, version }
+    pub const fn new(id: T::Id, commit_number: CommitNumber) -> Self {
+        Self { id, commit_number }
     }
 }
 
 impl<T: StreamDescription> From<&RecordedEvent<T>> for Ref<T> {
     fn from(r: &RecordedEvent<T>) -> Self {
-        Self { id: r.id.clone(), version: r.version }
+        Self { id: r.id.clone(), commit_number: r.commit_number }
     }
 }
 
@@ -35,7 +35,7 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(&format!(r#"Ref<"{}">"#, T::NAME))
             .field_with("id", |f| write!(f, "{:?}", self.id))
-            .field("version", &self.version.0)
+            .field("commit_number", &self.commit_number.0)
             .finish()
     }
 }

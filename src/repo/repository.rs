@@ -1,12 +1,11 @@
-use crate::{repo, Event, Id, SequenceNumber};
+use crate::{repo, Event, StreamDescription};
 
-pub trait Repository<T: Event> {
-    type Id: Id;
+pub trait Repository<T: StreamDescription> {
     type Stream: Stream<T>;
 
-    fn new_id(&mut self) -> Self::Id;
+    fn new_id(&mut self) -> T::Id;
 
-    fn stream(&mut self, id: Self::Id) -> Self::Stream;
+    fn stream(&mut self, id: T::Id) -> Self::Stream;
 
     fn new_stream(&mut self) -> Self::Stream {
         let id = self.new_id();
@@ -14,12 +13,11 @@ pub trait Repository<T: Event> {
     }
 }
 
-pub trait Stream<T: Event> {
-    type Id: Id;
+pub trait Stream<T: StreamDescription> {
     type EventIterator: EventIterator<T>;
     type EventSubscription: EventSubscription<T>;
 
-    fn id(&self) -> &Self::Id;
+    fn id(&self) -> &T::Id;
 
     async fn write(
         &mut self,
@@ -38,11 +36,11 @@ pub trait Stream<T: Event> {
     ) -> repo::Result<Self::EventSubscription>;
 }
 
-pub trait EventIterator<T: Event> {
+pub trait EventIterator<T: StreamDescription> {
     async fn next(&mut self) -> Option<Timed<T>>;
 }
 
-pub trait EventSubscription<T: Event> {
+pub trait EventSubscription<T: StreamDescription> {
     async fn next(&mut self) -> Option<Timed<T>>;
     fn stop(self);
 }
