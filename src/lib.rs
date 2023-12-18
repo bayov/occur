@@ -30,11 +30,11 @@ pub use time::Time;
 pub use version::Version;
 
 mod entity;
-mod stream;
-// pub mod repo;
 mod event;
 mod recorded_event;
 mod ref_;
+// pub mod repo;
 pub mod revision;
+mod stream;
 mod time;
 mod version;

@@ -2,10 +2,9 @@
 
 use std::collections::HashSet;
 
-use rstest::rstest;
-
 use event_sourcing::revision::Converter;
 use event_sourcing::{revision, Event, Time, Version};
+use rstest::rstest;
 
 use crate::example::{old_revision, user};
 use crate::fixture::user::{admin_created, admin_id, admin_stream};
