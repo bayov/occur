@@ -1,4 +1,4 @@
-use crate::{repo, Event, StreamDescription};
+use crate::{repo, CommitNumber, CommittedEvent, StreamDescription};
 
 pub trait Repository<T: StreamDescription> {
     type Stream: Stream<T>;
@@ -19,28 +19,24 @@ pub trait Stream<T: StreamDescription> {
 
     fn id(&self) -> &T::Id;
 
-    async fn write(
-        &mut self,
-        sequence_number: SequenceNumber,
-        event: &Timed<T>,
-    ) -> repo::Result<()>;
+    async fn write(&mut self, event: &CommittedEvent<T>) -> repo::Result<()>;
 
     async fn read(
         &self,
-        start_sequence_number: SequenceNumber,
+        start_commit_number: CommitNumber,
     ) -> repo::Result<Self::EventIterator>;
 
     async fn subscribe(
         &self,
-        start_sequence_number: SequenceNumber,
+        start_commit_number: CommitNumber,
     ) -> repo::Result<Self::EventSubscription>;
 }
 
 pub trait EventIterator<T: StreamDescription> {
-    async fn next(&mut self) -> Option<Timed<T>>;
+    async fn next(&mut self) -> Option<CommittedEvent<T>>;
 }
 
 pub trait EventSubscription<T: StreamDescription> {
-    async fn next(&mut self) -> Option<Timed<T>>;
+    async fn next(&mut self) -> Option<CommittedEvent<T>>;
     fn stop(self);
 }

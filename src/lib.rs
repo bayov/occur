@@ -8,7 +8,8 @@
     marker_trait_attr,
     associated_type_defaults,
     debug_closure_helpers,
-    core_intrinsics
+    core_intrinsics,
+    trait_alias
 )]
 #![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
 #![allow(async_fn_in_trait)]
@@ -32,7 +33,7 @@ mod committed_event;
 mod entity;
 mod event;
 mod ref_;
-// pub mod repo;
+pub mod repo;
 pub mod revision;
 mod stream;
 mod time;

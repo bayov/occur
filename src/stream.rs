@@ -49,9 +49,7 @@ impl<T: StreamDescription> Stream<T> {
     pub fn commit(&mut self, event: T::Event) -> &CommittedEvent<T> {
         self.events.push(CommittedEvent {
             id: self.id.clone(),
-            commit_number: CommitNumber(
-                u32::try_from(self.events.len()).unwrap(),
-            ),
+            commit_number: self.events.len().into(),
             time: Time::now(),
             event,
         });

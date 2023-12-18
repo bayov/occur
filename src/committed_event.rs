@@ -17,6 +17,18 @@ use crate::StreamDescription;
 )]
 pub struct CommitNumber(pub u32);
 
+impl From<usize> for CommitNumber {
+    fn from(value: usize) -> Self {
+        Self(u32::try_from(value).expect("commit number overflow"))
+    }
+}
+
+impl From<CommitNumber> for usize {
+    fn from(commit_number: CommitNumber) -> usize {
+        usize::try_from(commit_number.0).expect("commit number overflow")
+    }
+}
+
 impl Add<u32> for CommitNumber {
     type Output = Self;
     fn add(self, rhs: u32) -> Self::Output { Self(self.0 + rhs) }

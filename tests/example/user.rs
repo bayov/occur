@@ -21,7 +21,7 @@ impl event_sourcing::StreamDescription for StreamDescription {
 pub type Stream = event_sourcing::Stream<StreamDescription>;
 pub type Ref = event_sourcing::Ref<StreamDescription>;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     Created { name: String, is_admin: bool },
     Renamed { new_name: String },

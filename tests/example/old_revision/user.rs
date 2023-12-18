@@ -5,6 +5,7 @@ use event_sourcing::revision::OldOrNew;
 use crate::example::user::Event as NewEvent;
 
 #[allow(non_camel_case_types)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OldEvent {
     Deactivated_V0,
 }

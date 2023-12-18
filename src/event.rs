@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::{revision, Revision};
 
-pub trait Event {
+pub trait Event: Clone {
     type Revision: Revision = revision::TypeAndNumber;
 
     fn supported_revisions() -> HashSet<Self::Revision>;
@@ -11,6 +11,7 @@ pub trait Event {
     fn revision(&self) -> Self::Revision;
 }
 
+#[derive(Clone)]
 pub struct Empty<R: Revision>(PhantomData<R>);
 
 impl<R: Revision> Event for Empty<R> {

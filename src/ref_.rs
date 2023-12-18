@@ -6,7 +6,7 @@ use impl_tools::autoimpl;
 
 use crate::{CommitNumber, CommittedEvent, StreamDescription};
 
-#[autoimpl(Clone where T::Event: Clone)]
+#[autoimpl(Clone)]
 #[autoimpl(PartialEq where T::Event: PartialEq)]
 #[autoimpl(Eq where T::Event: Eq)]
 pub struct Ref<T: StreamDescription> {

@@ -6,28 +6,24 @@ use std::marker::PhantomData;
 
 use crate::{event, Event};
 
-pub trait Revision: Debug + Eq + Hash {}
+pub trait Traits = Debug + Clone + Eq + Hash;
+
+pub trait Revision: Traits {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TypeAndNumber<
-    T: Debug + Eq + Hash = &'static str,
-    R: Debug + Eq + Hash = u8,
-> {
+pub struct TypeAndNumber<T: Traits = &'static str, R: Traits = u8> {
     pub event_type: T,
     pub revision_number: R,
 }
 
-impl<T: Debug + Eq + Hash, R: Debug + Eq + Hash> TypeAndNumber<T, R> {
+impl<T: Traits, R: Traits> TypeAndNumber<T, R> {
     #[must_use]
     pub const fn new(event_type: T, revision_number: R) -> Self {
         Self { event_type, revision_number }
     }
 }
 
-impl<T: Debug + Eq + Hash, R: Debug + Eq + Hash> Revision
-    for TypeAndNumber<T, R>
-{
-}
+impl<T: Traits, R: Traits> Revision for TypeAndNumber<T, R> {}
 
 pub enum OldOrNew<
     OldEvent: Event<Revision = NewEvent::Revision>,
