@@ -1,9 +1,11 @@
 #![feature(assert_matches)]
 
+use std::collections::HashSet;
+
 use rstest::rstest;
 
 use event_sourcing::revision::Converter;
-use event_sourcing::{revision, Event, Time, Version};
+use event_sourcing::{revision, ConvertFromOldRevision, Event, Time, Version};
 
 use crate::example::{old_revision, user};
 use crate::fixture::user::{admin_created, admin_id, admin_stream};
@@ -73,19 +75,41 @@ fn record_many_events_in_stream(admin_created: user::Event) {
 
 #[test]
 fn convert_old_event() {
-    let old_event = old_revision::user::OldEvent::Deactivated;
+    let old_event = old_revision::user::OldEvent::Deactivated_V0;
     let new_event =
         old_revision::user::RevisionConverter::convert_to_new(old_event);
     assert_eq!(new_event, user::Event::Deactivated { reason: "".to_owned() });
 }
 
 #[test]
-fn all_supported_revisions() {
+fn supported_revisions() {
     assert_eq!(
-        revision::supported_by_stream::<user::StreamDescription>(),
-        user::Event::supported_revisions()
-            .union(&old_revision::user::OldEvent::supported_revisions())
-            .cloned()
-            .collect()
+        <user::Event as Event>::supported_revisions(),
+        HashSet::from([
+            revision::TypeAndNumber::new("Created", 0),
+            revision::TypeAndNumber::new("Renamed", 0),
+            revision::TypeAndNumber::new("Befriended", 0),
+            revision::TypeAndNumber::new("PromotedToAdmin", 0),
+            revision::TypeAndNumber::new("Deactivated", 1),
+        ])
+    );
+
+    assert_eq!(
+        old_revision::user::OldEvent::supported_revisions(),
+        HashSet::from([revision::TypeAndNumber::new("Deactivated", 0)])
+    );
+
+    assert_eq!(
+        <user::Event as ConvertFromOldRevision>::supported_revisions(),
+        HashSet::from([
+            // new revisions
+            revision::TypeAndNumber::new("Created", 0),
+            revision::TypeAndNumber::new("Renamed", 0),
+            revision::TypeAndNumber::new("Befriended", 0),
+            revision::TypeAndNumber::new("PromotedToAdmin", 0),
+            revision::TypeAndNumber::new("Deactivated", 1),
+            // old revisions
+            revision::TypeAndNumber::new("Deactivated", 0),
+        ])
     );
 }

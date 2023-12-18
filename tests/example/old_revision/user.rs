@@ -4,8 +4,9 @@ use event_sourcing::revision::OldOrNew;
 
 use crate::example::user::Event as NewEvent;
 
+#[allow(non_camel_case_types)]
 pub enum OldEvent {
-    Deactivated,
+    Deactivated_V0,
 }
 
 impl event_sourcing::Event for OldEvent {
@@ -15,7 +16,7 @@ impl event_sourcing::Event for OldEvent {
 
     fn revision(&self) -> Self::Revision {
         match &self {
-            OldEvent::Deactivated => Self::Revision::new("Deactivated", 0),
+            OldEvent::Deactivated_V0 => Self::Revision::new("Deactivated", 0),
         }
     }
 }
@@ -23,12 +24,12 @@ impl event_sourcing::Event for OldEvent {
 pub struct RevisionConverter;
 
 impl event_sourcing::revision::Converter for RevisionConverter {
-    type NewEvent = NewEvent;
     type OldEvent = OldEvent;
+    type NewEvent = NewEvent;
 
     fn convert(old_event: OldEvent) -> OldOrNew<OldEvent, NewEvent> {
         match old_event {
-            OldEvent::Deactivated => {
+            OldEvent::Deactivated_V0 => {
                 OldOrNew::New(NewEvent::Deactivated { reason: "".to_owned() })
             }
         }

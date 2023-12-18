@@ -1,20 +1,14 @@
 use std::ops::{Index, Range};
 use std::time::SystemTime;
 
-use crate::{revision, Event, RecordedEvent, Revision, Time, Version};
+use crate::{Event, RecordedEvent, Time, Version};
 
 #[allow(clippy::module_name_repetitions)] // exported from crate root
 pub trait StreamDescription {
     const NAME: &'static str;
     type Id: Clone + Eq;
-    type Event: Event<Revision = Self::Revision>;
-
+    type Event: Event;
     type Time: Time = SystemTime;
-
-    type Revision: Revision = revision::TypeAndNumber;
-
-    type RevisionConverter: revision::Converter<NewEvent = Self::Event> =
-        revision::PanicConverter<Self::Event>;
 }
 
 pub struct Stream<T: StreamDescription> {
