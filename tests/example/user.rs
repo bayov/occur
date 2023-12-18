@@ -14,6 +14,8 @@ impl event_sourcing::StreamDescription for StreamDescription {
     const NAME: &'static str = "user";
     type Id = Id;
     type Event = Event;
+
+    type RevisionConverter = old_revision::user::RevisionConverter;
 }
 
 pub type Stream = event_sourcing::Stream<StreamDescription>;
@@ -50,11 +52,6 @@ impl event_sourcing::Event for Event {
             Event::Deactivated { .. } => Self::Revision::new("Deactivated", 1),
         }
     }
-}
-
-impl event_sourcing::ConvertFromOldRevision for Event {
-    type OldEvent = old_revision::user::OldEvent;
-    type RevisionConverter = old_revision::user::RevisionConverter;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use rstest::rstest;
 
 use event_sourcing::revision::Converter;
-use event_sourcing::{revision, ConvertFromOldRevision, Event, Time, Version};
+use event_sourcing::{revision, Event, Time, Version};
 
 use crate::example::{old_revision, user};
 use crate::fixture::user::{admin_created, admin_id, admin_stream};
@@ -99,8 +99,12 @@ fn supported_revisions() {
         HashSet::from([revision::TypeAndNumber::new("Deactivated", 0)])
     );
 
+    type Converter = <
+    user::StreamDescription as event_sourcing::StreamDescription
+    >::RevisionConverter;
+
     assert_eq!(
-        <user::Event as ConvertFromOldRevision>::supported_revisions(),
+        <Converter as revision::Converter>::supported_revisions(),
         HashSet::from([
             // new revisions
             revision::TypeAndNumber::new("Created", 0),

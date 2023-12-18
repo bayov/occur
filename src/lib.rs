@@ -21,7 +21,7 @@
 #![allow(stable_features)]
 
 pub use entity::Entity;
-pub use event::{ConvertFromOldRevision, Event};
+pub use event::Event;
 pub use recorded_event::RecordedEvent;
 pub use ref_::Ref;
 pub use revision::Revision;
