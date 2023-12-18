@@ -20,21 +20,19 @@
 // feature(return_position_impl_trait_in_trait).
 #![allow(stable_features)]
 
-pub use commit_number::CommitNumber;
+pub use committed_event::{CommitNumber, CommittedEvent};
 pub use entity::Entity;
 pub use event::Event;
-pub use recorded_event::RecordedEvent;
 pub use ref_::Ref;
 pub use revision::Revision;
 pub use stream::{Stream, StreamDescription};
 pub use time::Time;
 
+mod committed_event;
 mod entity;
 mod event;
-mod recorded_event;
 mod ref_;
 // pub mod repo;
-mod commit_number;
 pub mod revision;
 mod stream;
 mod time;

@@ -4,7 +4,7 @@ use std::fmt::{Debug, Formatter};
 
 use impl_tools::autoimpl;
 
-use crate::{CommitNumber, RecordedEvent, StreamDescription};
+use crate::{CommitNumber, CommittedEvent, StreamDescription};
 
 #[autoimpl(Clone where T::Event: Clone)]
 #[autoimpl(PartialEq where T::Event: PartialEq)]
@@ -21,8 +21,8 @@ impl<T: StreamDescription> Ref<T> {
     }
 }
 
-impl<T: StreamDescription> From<&RecordedEvent<T>> for Ref<T> {
-    fn from(r: &RecordedEvent<T>) -> Self {
+impl<T: StreamDescription> From<&CommittedEvent<T>> for Ref<T> {
+    fn from(r: &CommittedEvent<T>) -> Self {
         Self { id: r.id.clone(), commit_number: r.commit_number }
     }
 }
