@@ -33,7 +33,7 @@ mod committed_event;
 mod entity;
 mod event;
 mod ref_;
-pub mod repo;
 pub mod revision;
+pub mod store;
 mod stream;
 mod time;

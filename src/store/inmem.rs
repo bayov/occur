@@ -5,24 +5,24 @@ use std::sync::Arc;
 use futures_locks::RwLock;
 use impl_tools::autoimpl;
 
-use crate::{repo, CommitNumber, CommittedEvent, StreamDescription};
+use crate::{store, CommitNumber, CommittedEvent, StreamDescription};
 
 pub type Id = u32;
 
 #[autoimpl(Default)]
-pub struct Repository<T: StreamDescription<Id = Id>> {
+pub struct Store<T: StreamDescription<Id = Id>> {
     next_id: Cell<Id>,
     events_by_stream_id: HashMap<Id, Stream<T>>,
 }
 
-impl<T: StreamDescription<Id = Id>> Repository<T> {
+impl<T: StreamDescription<Id = Id>> Store<T> {
     #[must_use]
     pub fn new() -> Self {
         Self { next_id: Cell::new(0), events_by_stream_id: HashMap::default() }
     }
 }
 
-impl<T: StreamDescription<Id = Id>> repo::Repository<T> for Repository<T> {
+impl<T: StreamDescription<Id = Id>> store::Store<T> for Store<T> {
     type Stream = Stream<T>;
 
     fn new_id(&mut self) -> Id {
@@ -57,13 +57,13 @@ impl<T: StreamDescription> Default for Stream<T> {
     fn default() -> Self { Self::new() }
 }
 
-impl<T: StreamDescription> repo::Stream<T> for Stream<T> {
+impl<T: StreamDescription> store::Stream<T> for Stream<T> {
     type EventIterator = EventIterator<T>;
     type EventSubscription = EventSubscription<T>;
 
     fn id(&self) -> &T::Id { todo!() }
 
-    async fn write(&mut self, event: &CommittedEvent<T>) -> repo::Result<()> {
+    async fn write(&mut self, event: &CommittedEvent<T>) -> store::Result<()> {
         let want_commit_number = self.events.read().await.len().into();
         assert_eq!(event.commit_number, want_commit_number);
         self.events.write().await.push((*event).clone());
@@ -74,14 +74,14 @@ impl<T: StreamDescription> repo::Stream<T> for Stream<T> {
     async fn read(
         &self,
         start_commit_number: CommitNumber,
-    ) -> repo::Result<Self::EventIterator> {
+    ) -> store::Result<Self::EventIterator> {
         Ok(EventIterator::new(Arc::clone(&self.events), start_commit_number))
     }
 
     async fn subscribe(
         &self,
         start_commit_number: CommitNumber,
-    ) -> repo::Result<Self::EventSubscription> {
+    ) -> store::Result<Self::EventSubscription> {
         Ok(EventSubscription::new(
             Arc::clone(&self.events),
             start_commit_number,
@@ -105,7 +105,7 @@ impl<T: StreamDescription> EventIterator<T> {
     }
 }
 
-impl<T: StreamDescription> repo::EventIterator<T> for EventIterator<T> {
+impl<T: StreamDescription> store::EventIterator<T> for EventIterator<T> {
     async fn next(&mut self) -> Option<CommittedEvent<T>> {
         let events = self.events.read().await;
         let event = events.get(usize::from(self.commit_number));
@@ -133,7 +133,9 @@ impl<T: StreamDescription> EventSubscription<T> {
     }
 }
 
-impl<T: StreamDescription> repo::EventSubscription<T> for EventSubscription<T> {
+impl<T: StreamDescription> store::EventSubscription<T>
+    for EventSubscription<T>
+{
     async fn next(&mut self) -> Option<CommittedEvent<T>> {
         {
             let events = self.events.read().await;

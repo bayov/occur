@@ -4,13 +4,13 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
-use event_sourcing::repo::{
+use event_sourcing::store::{
     EventIterator,
     EventSubscription,
-    Repository,
+    Store,
     Stream as _,
 };
-use event_sourcing::{repo, CommitNumber, Event, Stream, StreamDescription};
+use event_sourcing::{store, CommitNumber, Event, Stream, StreamDescription};
 use futures::join;
 use futures::task::SpawnExt;
 
@@ -20,7 +20,7 @@ struct TvShowTrackStreamDescription;
 
 impl StreamDescription for TvShowTrackStreamDescription {
     const NAME: &'static str = "tv_show_track";
-    type Id = repo::fake::Id;
+    type Id = store::inmem::Id;
     type Event = TvShowTrackEvent;
 }
 
@@ -72,13 +72,13 @@ fn fiddle() {
     let e2 = stream[CommitNumber(2)].clone();
     let e3 = stream[CommitNumber(3)].clone();
 
-    let mut repo = repo::fake::Repository::new();
+    let mut store = store::inmem::Store::new();
 
     // remove "thread-pool" feature from futures if not using thread-pool
     let pool = futures::executor::ThreadPool::new().unwrap();
 
     let t = pool.spawn_with_handle(async move {
-        let mut stream = repo.new_stream();
+        let mut stream = store.new_stream();
         stream.write(&e0).await.expect("wtf?");
         stream.write(&e1).await.expect("wtf?");
         stream.write(&e2).await.expect("wtf?");
@@ -99,21 +99,21 @@ fn fiddle() {
     let e2 = stream[CommitNumber(2)].clone();
     let e3 = stream[CommitNumber(3)].clone();
 
-    let repo = Mutex::new(repo::fake::Repository::new());
-    let id = repo.lock().unwrap().new_id();
+    let store = Mutex::new(store::inmem::Store::new());
+    let id = store.lock().unwrap().new_id();
 
     // remove "thread-pool" feature from futures if not using thread-pool
     let pool = futures::executor::ThreadPool::new().unwrap();
 
     let t = pool.spawn_with_handle(async move {
         {
-            let mut stream = repo.lock().unwrap().stream(id);
+            let mut stream = store.lock().unwrap().stream(id);
             stream.write(&e0).await.expect("wtf?");
             stream.write(&e1).await.expect("wtf?");
         }
 
         let f1 = async {
-            let stream = repo.lock().unwrap().stream(id);
+            let stream = store.lock().unwrap().stream(id);
             let mut it = stream.subscribe(CommitNumber(1)).await.expect("wtf?");
             while let Some(event) = it.next().await {
                 println!("subscriber read {:?}", event);
@@ -126,7 +126,7 @@ fn fiddle() {
         };
 
         let f2 = async {
-            let mut stream = repo.lock().unwrap().stream(id);
+            let mut stream = store.lock().unwrap().stream(id);
             stream.write(&e2).await.expect("wtf?");
             stream.write(&e3).await.expect("wtf?");
         };
@@ -143,18 +143,18 @@ fn fiddle() {
     let e2 = stream[CommitNumber(2)].clone();
     let e3 = stream[CommitNumber(3)].clone();
 
-    let repo = Arc::new(Mutex::new(repo::fake::Repository::new()));
-    let id = repo.lock().unwrap().new_id();
+    let store = Arc::new(Mutex::new(store::inmem::Store::new()));
+    let id = store.lock().unwrap().new_id();
 
     // remove "thread-pool" feature from futures if not using thread-pool
     let mut pool = futures::executor::LocalPool::new();
     let spawner = pool.spawner();
 
-    let repo2 = Arc::clone(&repo);
+    let store2 = Arc::clone(&store);
 
     spawner
         .spawn(async move {
-            let mut stream = repo2.lock().unwrap().stream(id);
+            let mut stream = store2.lock().unwrap().stream(id);
             stream.write(&e0).await.expect("wtf?");
             stream.write(&e1).await.expect("wtf?");
         })
@@ -162,11 +162,11 @@ fn fiddle() {
 
     pool.run();
 
-    let repo2 = Arc::clone(&repo);
+    let store2 = Arc::clone(&store);
 
     spawner
         .spawn(async move {
-            let stream = repo2.lock().unwrap().stream(id);
+            let stream = store2.lock().unwrap().stream(id);
             let mut it = stream.subscribe(CommitNumber(1)).await.expect("wtf?");
             while let Some(event) = it.next().await {
                 println!("subscriber read {:?}", event);
@@ -179,11 +179,11 @@ fn fiddle() {
         })
         .expect("wtf?");
 
-    let repo2 = Arc::clone(&repo);
+    let store2 = Arc::clone(&store);
 
     spawner
         .spawn(async move {
-            let mut stream = repo2.lock().unwrap().stream(id);
+            let mut stream = store2.lock().unwrap().stream(id);
             stream.write(&e2).await.expect("wtf?");
             stream.write(&e3).await.expect("wtf?");
         })

@@ -1,6 +1,11 @@
-use crate::{repo, CommitNumber, CommittedEvent, StreamDescription};
+pub use error::Result;
 
-pub trait Repository<T: StreamDescription> {
+use crate::{CommitNumber, CommittedEvent, StreamDescription};
+
+pub mod error;
+pub mod inmem;
+
+pub trait Store<T: StreamDescription> {
     type Stream: Stream<T>;
 
     fn new_id(&mut self) -> T::Id;
@@ -19,17 +24,20 @@ pub trait Stream<T: StreamDescription> {
 
     fn id(&self) -> &T::Id;
 
-    async fn write(&mut self, event: &CommittedEvent<T>) -> repo::Result<()>;
+    async fn write(
+        &mut self,
+        event: &CommittedEvent<T>,
+    ) -> crate::store::Result<()>;
 
     async fn read(
         &self,
         start_commit_number: CommitNumber,
-    ) -> repo::Result<Self::EventIterator>;
+    ) -> crate::store::Result<Self::EventIterator>;
 
     async fn subscribe(
         &self,
         start_commit_number: CommitNumber,
-    ) -> repo::Result<Self::EventSubscription>;
+    ) -> crate::store::Result<Self::EventSubscription>;
 }
 
 pub trait EventIterator<T: StreamDescription> {
