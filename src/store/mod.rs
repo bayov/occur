@@ -1,9 +1,11 @@
-pub use error::Result;
+use std::error::Error;
 
 use crate::{CommitNumber, CommittedEvent, StreamDescription};
 
 pub mod error;
 pub mod inmem;
+
+pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 pub trait Store<T: StreamDescription> {
     type Stream: Stream<T>;
@@ -24,20 +26,17 @@ pub trait Stream<T: StreamDescription> {
 
     fn id(&self) -> &T::Id;
 
-    async fn write(
-        &mut self,
-        event: &CommittedEvent<T>,
-    ) -> crate::store::Result<()>;
+    async fn write(&mut self, event: &CommittedEvent<T>) -> Result<()>;
 
     async fn read(
         &self,
         start_commit_number: CommitNumber,
-    ) -> crate::store::Result<Self::EventIterator>;
+    ) -> Result<Self::EventIterator>;
 
     async fn subscribe(
         &self,
         start_commit_number: CommitNumber,
-    ) -> crate::store::Result<Self::EventSubscription>;
+    ) -> Result<Self::EventSubscription>;
 }
 
 pub trait EventIterator<T: StreamDescription> {
