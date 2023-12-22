@@ -1,37 +1,45 @@
-use std::cell::Cell;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use futures_locks::RwLock;
 use impl_tools::autoimpl;
 
-use crate::{store, CommitNumber, CommittedEvent, StreamDescription};
+use crate::store::CommitNumber;
+use crate::{store, stream_desc, Event};
 
-pub type Id = u32;
+pub type Time = SystemTime;
+
+#[derive(Clone, Debug)]
+pub struct CommittedEvent<T: Event> {
+    pub commit_number: CommitNumber,
+    pub time: Time,
+    pub event: T,
+}
+
+impl<T: Event> store::CommittedEvent for CommittedEvent<T> {
+    type Event = T;
+    type Time = Time;
+
+    fn event(&self) -> &Self::Event { &self.event }
+    fn commit_number(&self) -> CommitNumber { self.commit_number }
+    fn time(&self) -> &Self::Time { &self.time }
+}
 
 #[autoimpl(Default)]
-pub struct Store<T: StreamDescription<Id = Id>> {
-    next_id: Cell<Id>,
-    events_by_stream_id: HashMap<Id, Stream<T>>,
+pub struct Store<D: stream_desc::StreamDesc> {
+    events_by_stream_id: HashMap<D::Id, Stream<D>>,
 }
 
-impl<T: StreamDescription<Id = Id>> Store<T> {
+impl<D: stream_desc::StreamDesc> Store<D> {
     #[must_use]
-    pub fn new() -> Self {
-        Self { next_id: Cell::new(0), events_by_stream_id: HashMap::default() }
-    }
+    pub fn new() -> Self { Self { events_by_stream_id: HashMap::default() } }
 }
 
-impl<T: StreamDescription<Id = Id>> store::Store<T> for Store<T> {
-    type Stream = Stream<T>;
+impl<D: stream_desc::StreamDesc> store::Store<D> for Store<D> {
+    type Stream = Stream<D>;
 
-    fn new_id(&mut self) -> Id {
-        let id = self.next_id.get();
-        self.next_id.set(id + 1);
-        id
-    }
-
-    fn stream(&mut self, id: T::Id) -> Self::Stream {
+    fn stream(&mut self, id: D::Id) -> Self::Stream {
         self.events_by_stream_id.entry(id).or_default().clone()
     }
 }
@@ -39,13 +47,13 @@ impl<T: StreamDescription<Id = Id>> store::Store<T> for Store<T> {
 type SmartVec<T> = Arc<RwLock<Vec<T>>>;
 
 #[autoimpl(Clone)]
-pub struct Stream<T: StreamDescription> {
-    events: SmartVec<CommittedEvent<T>>,
+pub struct Stream<D: stream_desc::StreamDesc> {
+    events: SmartVec<CommittedEvent<D::Event>>,
     sender: async_channel::Sender<CommitNumber>,
     receiver: async_channel::Receiver<CommitNumber>,
 }
 
-impl<T: StreamDescription> Stream<T> {
+impl<D: stream_desc::StreamDesc> Stream<D> {
     #[must_use]
     fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
@@ -53,22 +61,30 @@ impl<T: StreamDescription> Stream<T> {
     }
 }
 
-impl<T: StreamDescription> Default for Stream<T> {
+impl<D: stream_desc::StreamDesc> Default for Stream<D> {
     fn default() -> Self { Self::new() }
 }
 
-impl<T: StreamDescription> store::Stream<T> for Stream<T> {
-    type EventIterator = EventIterator<T>;
-    type EventSubscription = EventSubscription<T>;
+impl<D: stream_desc::StreamDesc> store::Stream<D> for Stream<D> {
+    type CommittedEvent = CommittedEvent<D::Event>;
+    type EventIterator = EventIterator<D::Event>;
+    type EventSubscription = EventSubscription<D::Event>;
 
-    fn id(&self) -> &T::Id { todo!() }
+    fn id(&self) -> &D::Id { todo!() }
 
-    async fn write(&mut self, event: &CommittedEvent<T>) -> store::Result<()> {
-        let want_commit_number = self.events.read().await.len().into();
-        assert_eq!(event.commit_number, want_commit_number);
-        self.events.write().await.push((*event).clone());
-        self.sender.send(event.commit_number).await.expect("Should not fail");
-        Ok(())
+    async fn commit(
+        &mut self,
+        event: &D::Event,
+    ) -> store::Result<impl store::CommittedEvent> {
+        let commit_number = self.events.read().await.len().into();
+        let committed_event = CommittedEvent {
+            event: event.clone(),
+            commit_number,
+            time: Time::now(),
+        };
+        self.events.write().await.push(committed_event.clone());
+        self.sender.send(commit_number).await.expect("Should not fail");
+        Ok(committed_event)
     }
 
     async fn read(
@@ -90,12 +106,12 @@ impl<T: StreamDescription> store::Stream<T> for Stream<T> {
     }
 }
 
-pub struct EventIterator<T: StreamDescription> {
+pub struct EventIterator<T: Event> {
     events: SmartVec<CommittedEvent<T>>,
     commit_number: CommitNumber,
 }
 
-impl<T: StreamDescription> EventIterator<T> {
+impl<T: Event> EventIterator<T> {
     #[must_use]
     const fn new(
         events: SmartVec<CommittedEvent<T>>,
@@ -105,7 +121,7 @@ impl<T: StreamDescription> EventIterator<T> {
     }
 }
 
-impl<T: StreamDescription> store::EventIterator<T> for EventIterator<T> {
+impl<T: Event> store::EventIterator<CommittedEvent<T>> for EventIterator<T> {
     async fn next(&mut self) -> Option<CommittedEvent<T>> {
         let events = self.events.read().await;
         let event = events.get(usize::from(self.commit_number));
@@ -116,13 +132,13 @@ impl<T: StreamDescription> store::EventIterator<T> for EventIterator<T> {
     }
 }
 
-pub struct EventSubscription<T: StreamDescription> {
+pub struct EventSubscription<T: Event> {
     events: SmartVec<CommittedEvent<T>>,
     commit_number: CommitNumber,
     receiver: async_channel::Receiver<CommitNumber>,
 }
 
-impl<T: StreamDescription> EventSubscription<T> {
+impl<T: Event> EventSubscription<T> {
     #[must_use]
     const fn new(
         events: SmartVec<CommittedEvent<T>>,
@@ -133,7 +149,7 @@ impl<T: StreamDescription> EventSubscription<T> {
     }
 }
 
-impl<T: StreamDescription> store::EventSubscription<T>
+impl<T: Event> store::EventSubscription<CommittedEvent<T>>
     for EventSubscription<T>
 {
     async fn next(&mut self) -> Option<CommittedEvent<T>> {

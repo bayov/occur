@@ -1,36 +1,30 @@
 use std::collections::HashSet;
 
 use derive_more::Display;
-
-use crate::example;
-use crate::example::old_revision;
+use uuid::Uuid;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Display)]
-pub struct Id(pub example::Id);
+pub struct Id(pub Uuid);
 
-pub struct StreamDescription;
+pub struct Desc;
 
-impl event_sourcing::StreamDescription for StreamDescription {
+impl occur::StreamDesc for Desc {
     const NAME: &'static str = "user";
     type Id = Id;
     type Event = Event;
-
-    type RevisionConverter = old_revision::user::RevisionConverter;
+    type RevisionConverter = old::RevisionConverter;
 }
-
-pub type Stream = event_sourcing::Stream<StreamDescription>;
-pub type Ref = event_sourcing::Ref<StreamDescription>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     Created { name: String, is_admin: bool },
     Renamed { new_name: String },
     Befriended { user: Id },
-    PromotedToAdmin { by: Ref },
+    PromotedToAdmin { by: Id },
     Deactivated { reason: String },
 }
 
-impl event_sourcing::Event for Event {
+impl occur::Event for Event {
     fn supported_revisions() -> HashSet<Self::Revision> {
         HashSet::from([
             Self::Revision::new("Created", 0),
@@ -65,7 +59,7 @@ pub struct Entity {
     pub deactivation_reason: Option<String>,
 }
 
-impl event_sourcing::Entity<StreamDescription> for Entity {
+impl occur::Entity<Desc> for Entity {
     fn new(id: Id, event: Event) -> Option<Self> {
         match event {
             Event::Created { name, is_admin } => Some(Entity {
@@ -81,7 +75,7 @@ impl event_sourcing::Entity<StreamDescription> for Entity {
         }
     }
 
-    fn apply(mut self, event: Event) -> Self {
+    fn fold(mut self, event: Event) -> Self {
         match event {
             Event::Created { .. } => self,
 
@@ -94,10 +88,10 @@ impl event_sourcing::Entity<StreamDescription> for Entity {
                 self
             }
 
-            Event::PromotedToAdmin { by: admin } => {
+            Event::PromotedToAdmin { by: admin_id } => {
                 if !self.is_admin {
                     self.is_admin = true;
-                    self.promoted_to_admin_by = Some(admin.id);
+                    self.promoted_to_admin_by = Some(admin_id);
                 }
                 self
             }
@@ -108,6 +102,48 @@ impl event_sourcing::Entity<StreamDescription> for Entity {
                     self.deactivation_reason = Some(reason);
                 }
                 self
+            }
+        }
+    }
+}
+
+pub mod old {
+    use std::collections::HashSet;
+
+    use occur::revision;
+    use occur::revision::OldOrNew;
+
+    #[allow(non_camel_case_types)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum Event {
+        Deactivated_V0,
+    }
+
+    impl occur::Event for Event {
+        fn supported_revisions() -> HashSet<Self::Revision> {
+            HashSet::from([Self::Revision::new("Deactivated", 0)])
+        }
+
+        fn revision(&self) -> Self::Revision {
+            match &self {
+                Event::Deactivated_V0 => Self::Revision::new("Deactivated", 0),
+            }
+        }
+    }
+
+    pub struct RevisionConverter;
+
+    impl revision::Converter for RevisionConverter {
+        type OldEvent = Event;
+        type NewEvent = super::Event;
+
+        fn convert(old_event: Event) -> OldOrNew<Event, super::Event> {
+            match old_event {
+                Event::Deactivated_V0 => {
+                    OldOrNew::New(super::Event::Deactivated {
+                        reason: "".to_owned(),
+                    })
+                }
             }
         }
     }

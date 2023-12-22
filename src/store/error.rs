@@ -7,5 +7,5 @@ use thiserror::Error;
 pub struct StreamNotFound<ID> {
     pub id: ID,
     #[cfg(feature = "backtrace")]
-    backtrace: Backtrace,
+    pub backtrace: Backtrace,
 }

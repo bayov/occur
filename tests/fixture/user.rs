@@ -1,14 +1,10 @@
 use rstest::fixture;
+use uuid::Uuid;
 
 use crate::example::user;
 
 #[fixture]
-pub fn admin_id() -> user::Id { user::Id(42) }
-
-#[fixture]
-pub fn admin_stream(admin_id: user::Id) -> user::Stream {
-    user::Stream::new(admin_id)
-}
+pub fn admin_id() -> user::Id { user::Id(Uuid::now_v7()) }
 
 #[fixture]
 pub fn admin_created() -> user::Event {

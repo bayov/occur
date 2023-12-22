@@ -1,49 +1,47 @@
 use std::error::Error;
 
-use crate::{CommitNumber, CommittedEvent, StreamDescription};
+pub use committed_event::{CommitNumber, CommittedEvent};
 
+use crate::stream_desc;
+
+pub mod committed_event;
 pub mod error;
 pub mod inmem;
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-pub trait Store<T: StreamDescription> {
-    type Stream: Stream<T>;
+pub trait Store<D: stream_desc::StreamDesc> {
+    type Stream: Stream<D>;
 
-    fn new_id(&mut self) -> T::Id;
-
-    fn stream(&mut self, id: T::Id) -> Self::Stream;
-
-    fn new_stream(&mut self) -> Self::Stream {
-        let id = self.new_id();
-        self.stream(id)
-    }
+    fn stream(&mut self, id: D::Id) -> Self::Stream;
 }
 
-pub trait Stream<T: StreamDescription> {
-    type EventIterator: EventIterator<T>;
-    type EventSubscription: EventSubscription<T>;
+pub trait Stream<D: stream_desc::StreamDesc> {
+    type CommittedEvent: CommittedEvent<Event = D::Event>;
+    type EventIterator: EventIterator<Self::CommittedEvent>;
+    type EventSubscription: EventSubscription<Self::CommittedEvent>;
 
-    fn id(&self) -> &T::Id;
+    fn id(&self) -> &D::Id;
 
-    async fn write(&mut self, event: &CommittedEvent<T>) -> Result<()>;
+    async fn commit(&mut self, event: &D::Event)
+        -> Result<impl CommittedEvent>;
 
     async fn read(
         &self,
-        start_commit_number: CommitNumber,
+        start_from: CommitNumber,
     ) -> Result<Self::EventIterator>;
 
     async fn subscribe(
         &self,
-        start_commit_number: CommitNumber,
+        start_from: CommitNumber,
     ) -> Result<Self::EventSubscription>;
 }
 
-pub trait EventIterator<T: StreamDescription> {
-    async fn next(&mut self) -> Option<CommittedEvent<T>>;
+pub trait EventIterator<T: CommittedEvent> {
+    async fn next(&mut self) -> Option<T>;
 }
 
-pub trait EventSubscription<T: StreamDescription> {
-    async fn next(&mut self) -> Option<CommittedEvent<T>>;
+pub trait EventSubscription<T: CommittedEvent> {
+    async fn next(&mut self) -> Option<T>;
     fn stop(self);
 }

@@ -12,6 +12,7 @@
     trait_alias
 )]
 #![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
+// #![warn(missing_docs)] -- uncomment when ready
 #![allow(async_fn_in_trait)]
 // RustRover IDE doesn't realize that the return_position_impl_trait_in_trait
 // feature is stable, and marks usages as Errors:
@@ -21,19 +22,13 @@
 // feature(return_position_impl_trait_in_trait).
 #![allow(stable_features)]
 
-pub use committed_event::{CommitNumber, CommittedEvent};
 pub use entity::Entity;
 pub use event::Event;
-pub use ref_::Ref;
 pub use revision::Revision;
-pub use stream::{Stream, StreamDescription};
-pub use time::Time;
+pub use stream_desc::StreamDesc;
 
-mod committed_event;
 mod entity;
 mod event;
-mod ref_;
 pub mod revision;
 pub mod store;
-mod stream;
-mod time;
+mod stream_desc;

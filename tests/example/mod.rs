@@ -2,7 +2,4 @@
 // which is unreasonable. So we ignore these kind of warnings.
 #![allow(dead_code)]
 
-pub(crate) type Id = u32;
-
-pub mod old_revision;
 pub mod user;
