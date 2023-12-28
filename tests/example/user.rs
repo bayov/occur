@@ -139,8 +139,8 @@ pub mod old {
 
         fn convert(old_event: Event) -> OldOrNew<Event, super::Event> {
             match old_event {
-                Event::Deactivated_V0 => {
-                    OldOrNew::New(super::Event::Deactivated {
+                Self::OldEvent::Deactivated_V0 => {
+                    OldOrNew::New(Self::NewEvent::Deactivated {
                         reason: "".to_owned(),
                     })
                 }

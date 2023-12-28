@@ -10,11 +10,8 @@ use std::marker::PhantomData;
 
 use crate::{event, Event};
 
-/// The traits that every revision type must implement.
-pub trait Traits = Debug + Clone + Eq + Hash;
-
 /// The revision of an [`Event`] variant, uniquely identifying its form.
-pub trait Revision: Traits {}
+pub trait Revision = Debug + Clone + Eq + Hash;
 
 /// A pair of event `name` (string) and revision `number` (integer) that
 /// together uniquely identify an [`Event`] variant form.
@@ -24,7 +21,7 @@ pub trait Revision: Traits {}
 /// By default, `name` is `&'static str` and `number` is `u8`. Generic
 /// parameters `V` and `N` can be provided to change these types.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Pair<V: Traits = &'static str, N: Traits = u8> {
+pub struct Pair<V = &'static str, N = u8> {
     /// The name of the event variant.
     pub name: V,
 
@@ -35,13 +32,11 @@ pub struct Pair<V: Traits = &'static str, N: Traits = u8> {
     pub number: N,
 }
 
-impl<V: Traits, N: Traits> Pair<V, N> {
+impl<V, N> Pair<V, N> {
     /// Constructs a new event revision from a pair of `name` and `number`.
     #[must_use]
     pub const fn new(name: V, number: N) -> Self { Self { name, number } }
 }
-
-impl<V: Traits, N: Traits> Revision for Pair<V, N> {}
 
 /// Holds either a new event variant or an old revision of one.
 pub enum OldOrNew<
@@ -62,15 +57,16 @@ pub trait Converter {
 
     /// Converts an old event variant to a newer one.
     ///
-    /// This function will be called as many times as needed on instances of
-    /// [`Self::OldEvent`] until it returns an instance of [`Self::NewEvent`].
+    /// Use [`Self::convert_until_new`] to convert an old event as many times
+    /// as needed to acquire an instance of [`Self::NewEvent`].
     ///
-    /// Take care to ensure that each invocation returns a newer event revision,
+    /// Implementation guideline:
+    /// -------------------------
+    /// Ensure that each invocation of `convert` returns a newer event revision,
     /// to avoid an infinite conversion loop.
     ///
-    /// Typically, when using the default [`Pair`] type, an event with revision
-    /// number `n` should be converted to the event with revision number
-    /// `n + 1`, until we reach the latest form of the event.
+    /// When using the default revision type, [`Pair`], this function should
+    /// return an event which has a higher revision number.
     fn convert(
         old_event: Self::OldEvent,
     ) -> OldOrNew<Self::OldEvent, Self::NewEvent>;
