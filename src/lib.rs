@@ -8,7 +8,8 @@
     marker_trait_attr,
     associated_type_defaults,
     debug_closure_helpers,
-    trait_alias
+    trait_alias,
+    never_type
 )]
 #![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
 // #![warn(missing_docs)] -- uncomment when ready

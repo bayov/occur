@@ -12,6 +12,8 @@ impl occur::StreamDesc for Desc {
     const NAME: &'static str = "user";
     type Id = Id;
     type Event = Event;
+
+    type OldEvent = old::Event;
     type RevisionConverter = old::RevisionConverter;
 }
 
@@ -113,6 +115,8 @@ pub mod old {
     use occur::revision;
     use occur::revision::OldOrNew;
 
+    use super::Event as NewEvent;
+
     #[allow(non_camel_case_types)]
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum Event {
@@ -133,17 +137,12 @@ pub mod old {
 
     pub struct RevisionConverter;
 
-    impl revision::Converter for RevisionConverter {
-        type OldEvent = Event;
-        type NewEvent = super::Event;
-
-        fn convert(old_event: Event) -> OldOrNew<Event, super::Event> {
+    impl revision::Converter<Event, NewEvent> for RevisionConverter {
+        fn convert(old_event: Event) -> OldOrNew<Event, NewEvent> {
             match old_event {
-                Self::OldEvent::Deactivated_V0 => {
-                    OldOrNew::New(Self::NewEvent::Deactivated {
-                        reason: "".to_owned(),
-                    })
-                }
+                Event::Deactivated_V0 => OldOrNew::New(NewEvent::Deactivated {
+                    reason: "".to_owned(),
+                }),
             }
         }
     }

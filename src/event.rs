@@ -17,15 +17,18 @@ pub trait Event: Clone {
     fn revision(&self) -> Self::Revision;
 }
 
-#[derive(Clone)]
-pub struct Empty<R: Revision>(PhantomData<R>);
+/// Represents an event with no variants.
+///
+/// Used as the default [`StreamDesc::OldEvent`] type, indicating there are no
+/// existing old event variants for the described stream.
+pub struct Empty<R: Revision>(!, PhantomData<R>);
+
+impl<R: Revision> Clone for Empty<R> {
+    fn clone(&self) -> Self { unreachable!() }
+}
 
 impl<R: Revision> Event for Empty<R> {
     type Revision = R;
-
     fn supported_revisions() -> HashSet<Self::Revision> { HashSet::default() }
-
-    fn revision(&self) -> Self::Revision {
-        panic!("event::Empty::revision() should not be called")
-    }
+    fn revision(&self) -> Self::Revision { unreachable!() }
 }

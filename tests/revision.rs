@@ -37,7 +37,7 @@ fn supported_revisions() {
     type Converter = <user::Desc as StreamDesc>::RevisionConverter;
 
     assert_eq!(
-        <Converter as revision::Converter>::supported_revisions(),
+        Converter::supported_revisions(),
         HashSet::from([
             // new revisions
             revision::Pair::new("Created", 0),

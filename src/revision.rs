@@ -2,13 +2,11 @@
 //!
 //! TODO: Doc
 
-use std::any::type_name;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::marker::PhantomData;
 
-use crate::{event, Event};
+use crate::Event;
 
 /// The revision of an [`Event`] variant, uniquely identifying its form.
 pub trait Revision = Debug + Clone + Eq + Hash;
@@ -48,17 +46,15 @@ pub enum OldOrNew<
 }
 
 /// Converts old event revisions to newer ones.
-pub trait Converter {
-    /// Old event variants that are to be converted.
-    type OldEvent: Event<Revision = <Self::NewEvent as Event>::Revision>;
-
-    /// New event variants to convert to.
-    type NewEvent: Event;
-
+pub trait Converter<OldEvent, NewEvent>
+where
+    OldEvent: Event<Revision = NewEvent::Revision>,
+    NewEvent: Event,
+{
     /// Converts an old event variant to a newer one.
     ///
     /// Use [`Self::convert_until_new`] to convert an old event as many times
-    /// as needed to acquire an instance of [`Self::NewEvent`].
+    /// as needed to acquire an instance of `NewEvent`.
     ///
     /// Implementation guideline:
     /// -------------------------
@@ -67,13 +63,11 @@ pub trait Converter {
     ///
     /// When using the default revision type, [`Pair`], this function should
     /// return an event which has a higher revision number.
-    fn convert(
-        old_event: Self::OldEvent,
-    ) -> OldOrNew<Self::OldEvent, Self::NewEvent>;
+    fn convert(old_event: OldEvent) -> OldOrNew<OldEvent, NewEvent>;
 
     /// Converts an old event variant as many times as needed until it becomes a
     /// new event variant.
-    fn convert_until_new(old_event: Self::OldEvent) -> Self::NewEvent {
+    fn convert_until_new(old_event: OldEvent) -> NewEvent {
         match Self::convert(old_event) {
             OldOrNew::Old(old_event) => Self::convert_until_new(old_event),
             OldOrNew::New(new_event) => new_event,
@@ -82,9 +76,9 @@ pub trait Converter {
 
     /// TODO doc
     #[must_use]
-    fn supported_revisions() -> HashSet<<Self::NewEvent as Event>::Revision> {
-        let mut new_revisions = Self::NewEvent::supported_revisions();
-        let old_revisions = Self::OldEvent::supported_revisions();
+    fn supported_revisions() -> HashSet<NewEvent::Revision> {
+        let mut new_revisions = NewEvent::supported_revisions();
+        let old_revisions = OldEvent::supported_revisions();
 
         let mut intersection = new_revisions.intersection(&old_revisions);
         if let Some(conflicting_revision) = intersection.next() {
@@ -94,16 +88,16 @@ pub trait Converter {
     
                 The same revision appears in both OldEvent and NewEvent types.
     
-                    Revision:        {conflicting_revision:?}
-                    Old event type:  {old_event_type_name}
-                    New event type:  {new_event_type_name}
+                    Revision = {conflicting_revision:?}
+                    OldEvent = {old_event_type_name}
+                    NewEvent = {new_event_type_name}
     
                 Ensure you've set the revision of each event appropriately.
                 "#,
-                self_type_name = type_name::<Self>(),
+                self_type_name = std::any::type_name::<Self>(),
                 conflicting_revision = conflicting_revision,
-                old_event_type_name = type_name::<Self::OldEvent>(),
-                new_event_type_name = type_name::<Self::NewEvent>(),
+                old_event_type_name = std::any::type_name::<OldEvent>(),
+                new_event_type_name = std::any::type_name::<NewEvent>(),
             );
             panic!("{}", panic_msg);
         }
@@ -119,13 +113,14 @@ pub trait Converter {
 /// This type is used as the default for
 /// [`crate::stream_desc::StreamDesc::RevisionConverter`], and represents the
 /// fact that the described event stream has no old event revisions yet.
-pub struct EmptyConverter<T: Event>(PhantomData<T>);
+pub struct EmptyConverter;
 
-impl<T: Event> Converter for EmptyConverter<T> {
-    type OldEvent = event::Empty<T::Revision>;
-    type NewEvent = T;
-
-    fn convert(_: Self::OldEvent) -> OldOrNew<Self::OldEvent, Self::NewEvent> {
+impl<OldEvent, NewEvent> Converter<OldEvent, NewEvent> for EmptyConverter
+where
+    OldEvent: Event<Revision = NewEvent::Revision>,
+    NewEvent: Event,
+{
+    fn convert(_: OldEvent) -> OldOrNew<OldEvent, NewEvent> {
         panic!("revision::EmptyConverter::convert() should not be called")
     }
 }
