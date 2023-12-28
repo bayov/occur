@@ -2,10 +2,10 @@
 //!
 //! TODO: Doc
 
+use std::any::type_name;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::intrinsics::type_name;
 use std::marker::PhantomData;
 
 use crate::{event, Event};
@@ -57,7 +57,7 @@ pub trait Converter {
     /// Old event variants that are to be converted.
     type OldEvent: Event<Revision = <Self::NewEvent as Event>::Revision>;
 
-    /// New event variants to converted to.
+    /// New event variants to convert to.
     type NewEvent: Event;
 
     /// Converts an old event variant to a newer one.

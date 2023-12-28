@@ -8,7 +8,6 @@
     marker_trait_attr,
     associated_type_defaults,
     debug_closure_helpers,
-    core_intrinsics,
     trait_alias
 )]
 #![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
