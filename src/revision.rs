@@ -5,6 +5,7 @@
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::marker::PhantomData;
 
 use crate::Event;
 
@@ -37,20 +38,19 @@ impl<V, N> Pair<V, N> {
 }
 
 /// Holds either a new event variant or an old revision of one.
-pub enum OldOrNew<
+pub enum OldOrNew<OldEvent, NewEvent>
+where
     OldEvent: Event<Revision = NewEvent::Revision>,
     NewEvent: Event,
-> {
+{
     Old(OldEvent),
     New(NewEvent),
 }
 
 /// Converts old event revisions to newer ones.
-pub trait Converter<OldEvent, NewEvent>
-where
-    OldEvent: Event<Revision = NewEvent::Revision>,
-    NewEvent: Event,
-{
+pub trait Convert: Event {
+    type NewEvent: Event<Revision = Self::Revision>;
+
     /// Converts an old event variant to a newer one.
     ///
     /// Use [`Self::convert_until_new`] to convert an old event as many times
@@ -63,64 +63,35 @@ where
     ///
     /// When using the default revision type, [`Pair`], this function should
     /// return an event which has a higher revision number.
-    fn convert(old_event: OldEvent) -> OldOrNew<OldEvent, NewEvent>;
+    fn convert(self) -> OldOrNew<Self, Self::NewEvent>;
 
     /// Converts an old event variant as many times as needed until it becomes a
     /// new event variant.
-    fn convert_until_new(old_event: OldEvent) -> NewEvent {
-        match Self::convert(old_event) {
-            OldOrNew::Old(old_event) => Self::convert_until_new(old_event),
+    fn convert_until_new(self) -> Self::NewEvent {
+        match Self::convert(self) {
+            OldOrNew::Old(old_event) => old_event.convert_until_new(),
             OldOrNew::New(new_event) => new_event,
         }
     }
-
-    /// TODO doc
-    #[must_use]
-    fn supported_revisions() -> HashSet<NewEvent::Revision> {
-        let mut new_revisions = NewEvent::supported_revisions();
-        let old_revisions = OldEvent::supported_revisions();
-
-        let mut intersection = new_revisions.intersection(&old_revisions);
-        if let Some(conflicting_revision) = intersection.next() {
-            let panic_msg = indoc::formatdoc!(
-                r#"
-                Conflicting revision in definition of {self_type_name}.
-    
-                The same revision appears in both OldEvent and NewEvent types.
-    
-                    Revision = {conflicting_revision:?}
-                    OldEvent = {old_event_type_name}
-                    NewEvent = {new_event_type_name}
-    
-                Ensure you've set the revision of each event appropriately.
-                "#,
-                self_type_name = std::any::type_name::<Self>(),
-                conflicting_revision = conflicting_revision,
-                old_event_type_name = std::any::type_name::<OldEvent>(),
-                new_event_type_name = std::any::type_name::<NewEvent>(),
-            );
-            panic!("{}", panic_msg);
-        }
-
-        new_revisions.extend(old_revisions);
-        new_revisions
-    }
 }
 
-/// A no-op revision converter from an empty set of old event variants to
-/// the provided event type `T`.
+/// Represents an event with no variants.
 ///
-/// This type is used as the default for
-/// [`crate::stream_desc::StreamDesc::RevisionConverter`], and represents the
-/// fact that the described event stream has no old event revisions yet.
-pub struct EmptyConverter;
+/// Used as the default [`StreamDesc::OldEvent`] type, indicating there are no
+/// existing old event variants for the described stream.
+pub struct Never<T: Event>(!, PhantomData<T>);
 
-impl<OldEvent, NewEvent> Converter<OldEvent, NewEvent> for EmptyConverter
-where
-    OldEvent: Event<Revision = NewEvent::Revision>,
-    NewEvent: Event,
-{
-    fn convert(_: OldEvent) -> OldOrNew<OldEvent, NewEvent> {
-        panic!("revision::EmptyConverter::convert() should not be called")
-    }
+impl<T: Event> Clone for Never<T> {
+    fn clone(&self) -> Self { unreachable!() }
+}
+
+impl<T: Event> Event for Never<T> {
+    type Revision = T::Revision;
+    fn supported_revisions() -> HashSet<Self::Revision> { HashSet::default() }
+    fn revision(&self) -> Self::Revision { unreachable!() }
+}
+
+impl<T: Event> Convert for Never<T> {
+    type NewEvent = T;
+    fn convert(self) -> OldOrNew<Self, Self::NewEvent> { unreachable!() }
 }
