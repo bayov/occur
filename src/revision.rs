@@ -7,15 +7,24 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use crate::Event;
+/// An event that can be committed to a stream to represent an immutable fact.
+pub trait Revision: Clone {
+    /// The type used to revision event variants.
+    ///
+    /// By default, this is [`revision::Pair`].
+    ///
+    /// For event revisioning documentation, see module [`revision`].
+    type Revision: Debug + Clone + Eq + Hash = Pair;
 
-/// The revision of an [`Event`] variant, uniquely identifying its form.
-pub trait Revision = Debug + Clone + Eq + Hash;
+    fn revision(&self) -> Self::Revision;
+
+    fn supported_revisions() -> HashSet<Self::Revision>;
+}
 
 /// A pair of event `name` (string) and revision `number` (integer) that
-/// together uniquely identify an [`Event`] variant form.
+/// together uniquely identify an [`Revision`] variant form.
 ///
-/// This type is used as the default for [`Event::Revision`].
+/// This type is used as the default for [`Revision::Revision`].
 ///
 /// By default, `name` is `&'static str` and `number` is `u8`. Generic
 /// parameters `V` and `N` can be provided to change these types.
@@ -40,17 +49,17 @@ impl<V, N> Pair<V, N> {
 /// Holds either a new event variant or an old revision of one.
 pub enum OldOrNew<OldEvent, NewEvent>
 where
-    OldEvent: Event<Revision = NewEvent::Revision>,
-    NewEvent: Event,
+    OldEvent: Revision<Revision = NewEvent::Revision>,
+    NewEvent: Revision,
 {
     Old(OldEvent),
     New(NewEvent),
 }
 
 /// An event that can be converted to a newer event type.
-pub trait Convert: Event {
+pub trait Convert: Revision {
     /// The newer event to which this event can be converted to.
-    type NewEvent: Event<Revision = Self::Revision>;
+    type NewEvent: Revision<Revision = Self::Revision>;
 
     /// Converts this event variant to a newer one.
     ///
@@ -77,19 +86,19 @@ pub trait Convert: Event {
 ///
 /// Used as the default [`StreamDesc::OldEvent`] type, indicating there are no
 /// existing old event variants for the described stream.
-pub struct Never<T: Event>(!, PhantomData<T>);
+pub struct Never<T: Revision>(!, PhantomData<T>);
 
-impl<T: Event> Clone for Never<T> {
+impl<T: Revision> Clone for Never<T> {
     fn clone(&self) -> Self { unreachable!() }
 }
 
-impl<T: Event> Event for Never<T> {
+impl<T: Revision> Revision for Never<T> {
     type Revision = T::Revision;
-    fn supported_revisions() -> HashSet<Self::Revision> { HashSet::default() }
     fn revision(&self) -> Self::Revision { unreachable!() }
+    fn supported_revisions() -> HashSet<Self::Revision> { HashSet::default() }
 }
 
-impl<T: Event> Convert for Never<T> {
+impl<T: Revision> Convert for Never<T> {
     type NewEvent = T;
     fn convert(self) -> OldOrNew<Self, Self::NewEvent> { unreachable!() }
 }

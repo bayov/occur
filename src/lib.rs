@@ -23,7 +23,7 @@
 #![allow(stable_features)]
 
 pub use entity::Entity;
-pub use event::{Event, Streamable};
+pub use event::Event;
 pub use revision::Revision;
 
 mod entity;

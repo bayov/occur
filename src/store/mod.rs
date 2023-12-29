@@ -2,7 +2,7 @@ use std::error::Error;
 
 pub use committed_event::{CommitNumber, CommittedEvent};
 
-use crate::Streamable;
+use crate::Event;
 
 pub mod committed_event;
 pub mod error;
@@ -10,13 +10,13 @@ pub mod inmem;
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-pub trait Store<T: Streamable> {
+pub trait Store<T: Event> {
     type Stream: Stream<T>;
 
     fn stream(&mut self, id: T::Id) -> Self::Stream;
 }
 
-pub trait Stream<T: Streamable> {
+pub trait Stream<T: Event> {
     type CommittedEvent: CommittedEvent<Event = T>;
     type EventIterator: EventIterator<Self::CommittedEvent>;
     type EventSubscription: EventSubscription<Self::CommittedEvent>;

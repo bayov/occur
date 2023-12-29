@@ -3,21 +3,7 @@ use std::hash::Hash;
 
 use crate::{revision, Revision};
 
-/// An event that can be committed to a stream to represent an immutable fact.
-pub trait Event: Clone {
-    /// The type used to revision event variants.
-    ///
-    /// By default, this is [`revision::Pair`].
-    ///
-    /// For event revisioning documentation, see module [`revision`].
-    type Revision: Revision = revision::Pair;
-
-    fn supported_revisions() -> HashSet<Self::Revision>;
-
-    fn revision(&self) -> Self::Revision;
-}
-
-pub trait Streamable: Event {
+pub trait Event: Revision {
     const STREAM_NAME: &'static str;
     type Id: Clone + Eq + Hash;
 
@@ -27,7 +13,7 @@ pub trait Streamable: Event {
     #[must_use]
     fn convertible_revisions() -> HashSet<Self::Revision>
     where
-        Self::OldEvent: Event<Revision = Self::Revision>,
+        Self::OldEvent: Revision<Revision = Self::Revision>,
     {
         let mut new_revisions = Self::supported_revisions();
         let old_revisions = Self::OldEvent::supported_revisions();

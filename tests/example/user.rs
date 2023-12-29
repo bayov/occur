@@ -15,23 +15,13 @@ pub enum Event {
     Deactivated { reason: String },
 }
 
-impl occur::Streamable for Event {
+impl occur::Event for Event {
     const STREAM_NAME: &'static str = "user";
     type Id = Id;
     type OldEvent = old::Event;
 }
 
-impl occur::Event for Event {
-    fn supported_revisions() -> HashSet<Self::Revision> {
-        HashSet::from([
-            Self::Revision::new("Created", 0),
-            Self::Revision::new("Renamed", 0),
-            Self::Revision::new("Befriended", 0),
-            Self::Revision::new("PromotedToAdmin", 0),
-            Self::Revision::new("Deactivated", 1),
-        ])
-    }
-
+impl occur::Revision for Event {
     fn revision(&self) -> Self::Revision {
         match &self {
             Event::Created { .. } => Self::Revision::new("Created", 0),
@@ -42,6 +32,16 @@ impl occur::Event for Event {
             }
             Event::Deactivated { .. } => Self::Revision::new("Deactivated", 1),
         }
+    }
+
+    fn supported_revisions() -> HashSet<Self::Revision> {
+        HashSet::from([
+            Self::Revision::new("Created", 0),
+            Self::Revision::new("Renamed", 0),
+            Self::Revision::new("Befriended", 0),
+            Self::Revision::new("PromotedToAdmin", 0),
+            Self::Revision::new("Deactivated", 1),
+        ])
     }
 }
 
@@ -116,15 +116,15 @@ pub mod old {
         Deactivated_V0,
     }
 
-    impl occur::Event for Event {
-        fn supported_revisions() -> HashSet<Self::Revision> {
-            HashSet::from([Self::Revision::new("Deactivated", 0)])
-        }
-
+    impl occur::Revision for Event {
         fn revision(&self) -> Self::Revision {
             match &self {
                 Event::Deactivated_V0 => Self::Revision::new("Deactivated", 0),
             }
+        }
+
+        fn supported_revisions() -> HashSet<Self::Revision> {
+            HashSet::from([Self::Revision::new("Deactivated", 0)])
         }
     }
 

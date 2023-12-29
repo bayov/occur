@@ -4,7 +4,7 @@
 use std::collections::HashSet;
 
 use occur::revision::{Convert, OldOrNew};
-use occur::{revision, Event, Streamable};
+use occur::{revision, Event, Revision};
 
 use crate::example::user;
 
@@ -60,21 +60,21 @@ fn panics_when_old_and_new_event_revisions_intersect() {
         Bar,
     }
 
-    impl Streamable for SomeEvent {
+    impl Event for SomeEvent {
         const STREAM_NAME: &'static str = "some_stream";
         type Id = u32;
         type OldEvent = SomeOldEvent;
     }
 
-    impl Event for SomeEvent {
+    impl Revision for SomeEvent {
+        fn revision(&self) -> Self::Revision { unreachable!() }
+
         fn supported_revisions() -> HashSet<Self::Revision> {
             HashSet::from([
                 Self::Revision::new("Foo", 1),
                 Self::Revision::new("Bar", 0),
             ])
         }
-
-        fn revision(&self) -> Self::Revision { unreachable!() }
     }
 
     #[allow(non_camel_case_types)]
@@ -84,15 +84,15 @@ fn panics_when_old_and_new_event_revisions_intersect() {
         Foo_V1,
     }
 
-    impl Event for SomeOldEvent {
+    impl Revision for SomeOldEvent {
+        fn revision(&self) -> Self::Revision { unreachable!() }
+
         fn supported_revisions() -> HashSet<Self::Revision> {
             HashSet::from([
                 Self::Revision::new("Foo", 0),
                 Self::Revision::new("Foo", 1),
             ])
         }
-
-        fn revision(&self) -> Self::Revision { unreachable!() }
     }
 
     impl Convert for SomeOldEvent {

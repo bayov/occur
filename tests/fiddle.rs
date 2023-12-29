@@ -13,7 +13,7 @@ use occur::store::{
     Store,
     Stream as _,
 };
-use occur::{store, Event};
+use occur::{store, Revision};
 use uuid::Uuid;
 
 use crate::TvShowTrackEvent::{Created, WatchedEpisode};
@@ -27,24 +27,24 @@ enum TvShowTrackEvent {
     WatchedEpisode { season: u64, episode: u64 },
 }
 
-impl occur::Streamable for TvShowTrackEvent {
+impl occur::Event for TvShowTrackEvent {
     const STREAM_NAME: &'static str = "tv_show_track";
     type Id = TvShowTrackId;
 }
 
-impl Event for TvShowTrackEvent {
-    fn supported_revisions() -> HashSet<Self::Revision> {
-        HashSet::from([
-            Self::Revision::new("Created", 0),
-            Self::Revision::new("WatchedEpisode", 0),
-        ])
-    }
-
+impl Revision for TvShowTrackEvent {
     fn revision(&self) -> Self::Revision {
         match &self {
             Created { .. } => Self::Revision::new("Created", 0),
             WatchedEpisode { .. } => Self::Revision::new("WatchedEpisode", 0),
         }
+    }
+
+    fn supported_revisions() -> HashSet<Self::Revision> {
+        HashSet::from([
+            Self::Revision::new("Created", 0),
+            Self::Revision::new("WatchedEpisode", 0),
+        ])
     }
 }
 

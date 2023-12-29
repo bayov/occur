@@ -5,18 +5,18 @@ use std::time::SystemTime;
 use futures_locks::RwLock;
 
 use crate::store::CommitNumber;
-use crate::{store, Event, Streamable};
+use crate::{store, Event, Revision};
 
 pub type Time = SystemTime;
 
 #[derive(Clone, Debug)]
-pub struct CommittedEvent<T: Event> {
+pub struct CommittedEvent<T: Revision> {
     pub commit_number: CommitNumber,
     pub time: Time,
     pub event: T,
 }
 
-impl<T: Event> store::CommittedEvent for CommittedEvent<T> {
+impl<T: Revision> store::CommittedEvent for CommittedEvent<T> {
     type Event = T;
     type Time = Time;
 
@@ -26,16 +26,16 @@ impl<T: Event> store::CommittedEvent for CommittedEvent<T> {
 }
 
 #[derive(Default)]
-pub struct Store<T: Streamable> {
+pub struct Store<T: Event> {
     events_by_stream_id: HashMap<T::Id, Stream<T>>,
 }
 
-impl<T: Streamable> Store<T> {
+impl<T: Event> Store<T> {
     #[must_use]
     pub fn new() -> Self { Self { events_by_stream_id: HashMap::default() } }
 }
 
-impl<T: Streamable> store::Store<T> for Store<T> {
+impl<T: Event> store::Store<T> for Store<T> {
     type Stream = Stream<T>;
 
     fn stream(&mut self, id: T::Id) -> Self::Stream {
@@ -46,13 +46,13 @@ impl<T: Streamable> store::Store<T> for Store<T> {
 type SmartVec<T> = Arc<RwLock<Vec<T>>>;
 
 #[derive(Clone)]
-pub struct Stream<T: Streamable> {
+pub struct Stream<T: Event> {
     events: SmartVec<CommittedEvent<T>>,
     sender: async_channel::Sender<CommitNumber>,
     receiver: async_channel::Receiver<CommitNumber>,
 }
 
-impl<T: Streamable> Stream<T> {
+impl<T: Event> Stream<T> {
     #[must_use]
     fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
@@ -60,11 +60,11 @@ impl<T: Streamable> Stream<T> {
     }
 }
 
-impl<T: Streamable> Default for Stream<T> {
+impl<T: Event> Default for Stream<T> {
     fn default() -> Self { Self::new() }
 }
 
-impl<T: Streamable> store::Stream<T> for Stream<T> {
+impl<T: Event> store::Stream<T> for Stream<T> {
     type CommittedEvent = CommittedEvent<T>;
     type EventIterator = EventIterator<T>;
     type EventSubscription = EventSubscription<T>;
@@ -105,12 +105,12 @@ impl<T: Streamable> store::Stream<T> for Stream<T> {
     }
 }
 
-pub struct EventIterator<T: Event> {
+pub struct EventIterator<T: Revision> {
     events: SmartVec<CommittedEvent<T>>,
     commit_number: CommitNumber,
 }
 
-impl<T: Event> EventIterator<T> {
+impl<T: Revision> EventIterator<T> {
     #[must_use]
     const fn new(
         events: SmartVec<CommittedEvent<T>>,
@@ -120,7 +120,7 @@ impl<T: Event> EventIterator<T> {
     }
 }
 
-impl<T: Event> store::EventIterator<CommittedEvent<T>> for EventIterator<T> {
+impl<T: Revision> store::EventIterator<CommittedEvent<T>> for EventIterator<T> {
     async fn next(&mut self) -> Option<CommittedEvent<T>> {
         let events = self.events.read().await;
         let event = events.get(usize::from(self.commit_number));
@@ -131,13 +131,13 @@ impl<T: Event> store::EventIterator<CommittedEvent<T>> for EventIterator<T> {
     }
 }
 
-pub struct EventSubscription<T: Event> {
+pub struct EventSubscription<T: Revision> {
     events: SmartVec<CommittedEvent<T>>,
     commit_number: CommitNumber,
     receiver: async_channel::Receiver<CommitNumber>,
 }
 
-impl<T: Event> EventSubscription<T> {
+impl<T: Revision> EventSubscription<T> {
     #[must_use]
     const fn new(
         events: SmartVec<CommittedEvent<T>>,
@@ -148,7 +148,7 @@ impl<T: Event> EventSubscription<T> {
     }
 }
 
-impl<T: Event> store::EventSubscription<CommittedEvent<T>>
+impl<T: Revision> store::EventSubscription<CommittedEvent<T>>
     for EventSubscription<T>
 {
     async fn next(&mut self) -> Option<CommittedEvent<T>> {
