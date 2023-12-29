@@ -47,25 +47,23 @@ where
     New(NewEvent),
 }
 
-/// Converts old event revisions to newer ones.
+/// An event that can be converted to a newer event type.
 pub trait Convert: Event {
+    /// The newer event to which this event can be converted to.
     type NewEvent: Event<Revision = Self::Revision>;
 
-    /// Converts an old event variant to a newer one.
+    /// Converts this event variant to a newer one.
     ///
     /// Use [`Self::convert_until_new`] to convert an old event as many times
-    /// as needed to acquire an instance of `NewEvent`.
+    /// as needed to acquire an instance of [`Self::NewEvent`].
     ///
     /// Implementation guideline:
     /// -------------------------
     /// Ensure that each invocation of `convert` returns a newer event revision,
     /// to avoid an infinite conversion loop.
-    ///
-    /// When using the default revision type, [`Pair`], this function should
-    /// return an event which has a higher revision number.
     fn convert(self) -> OldOrNew<Self, Self::NewEvent>;
 
-    /// Converts an old event variant as many times as needed until it becomes a
+    /// Converts this event variant as many times as needed until it becomes a
     /// new event variant.
     fn convert_until_new(self) -> Self::NewEvent {
         match Self::convert(self) {
