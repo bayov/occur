@@ -21,8 +21,8 @@ impl From<usize> for CommitNumber {
 }
 
 impl From<CommitNumber> for usize {
-    fn from(commit_number: CommitNumber) -> usize {
-        usize::try_from(commit_number.0).expect("commit number overflow")
+    fn from(commit_number: CommitNumber) -> Self {
+        Self::try_from(commit_number.0).expect("commit number overflow")
     }
 }
 

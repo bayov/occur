@@ -6,15 +6,6 @@ use uuid::Uuid;
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Display)]
 pub struct Id(pub Uuid);
 
-pub struct Desc;
-
-impl occur::StreamDesc for Desc {
-    const NAME: &'static str = "user";
-    type Id = Id;
-    type Event = Event;
-    type OldEvent = old::Event;
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     Created { name: String, is_admin: bool },
@@ -22,6 +13,12 @@ pub enum Event {
     Befriended { user: Id },
     PromotedToAdmin { by: Id },
     Deactivated { reason: String },
+}
+
+impl occur::Streamable for Event {
+    const STREAM_NAME: &'static str = "user";
+    type Id = Id;
+    type OldEvent = old::Event;
 }
 
 impl occur::Event for Event {
@@ -59,7 +56,7 @@ pub struct Entity {
     pub deactivation_reason: Option<String>,
 }
 
-impl occur::Entity<Desc> for Entity {
+impl occur::Entity<Event> for Entity {
     fn new(id: Id, event: Event) -> Option<Self> {
         match event {
             Event::Created { name, is_admin } => Some(Entity {

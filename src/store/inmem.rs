@@ -3,10 +3,9 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use futures_locks::RwLock;
-use impl_tools::autoimpl;
 
 use crate::store::CommitNumber;
-use crate::{store, stream_desc, Event};
+use crate::{store, Event, Streamable};
 
 pub type Time = SystemTime;
 
@@ -26,34 +25,34 @@ impl<T: Event> store::CommittedEvent for CommittedEvent<T> {
     fn time(&self) -> &Self::Time { &self.time }
 }
 
-#[autoimpl(Default)]
-pub struct Store<D: stream_desc::StreamDesc> {
-    events_by_stream_id: HashMap<D::Id, Stream<D>>,
+#[derive(Default)]
+pub struct Store<T: Streamable> {
+    events_by_stream_id: HashMap<T::Id, Stream<T>>,
 }
 
-impl<D: stream_desc::StreamDesc> Store<D> {
+impl<T: Streamable> Store<T> {
     #[must_use]
     pub fn new() -> Self { Self { events_by_stream_id: HashMap::default() } }
 }
 
-impl<D: stream_desc::StreamDesc> store::Store<D> for Store<D> {
-    type Stream = Stream<D>;
+impl<T: Streamable> store::Store<T> for Store<T> {
+    type Stream = Stream<T>;
 
-    fn stream(&mut self, id: D::Id) -> Self::Stream {
+    fn stream(&mut self, id: T::Id) -> Self::Stream {
         self.events_by_stream_id.entry(id).or_default().clone()
     }
 }
 
 type SmartVec<T> = Arc<RwLock<Vec<T>>>;
 
-#[autoimpl(Clone)]
-pub struct Stream<D: stream_desc::StreamDesc> {
-    events: SmartVec<CommittedEvent<D::Event>>,
+#[derive(Clone)]
+pub struct Stream<T: Streamable> {
+    events: SmartVec<CommittedEvent<T>>,
     sender: async_channel::Sender<CommitNumber>,
     receiver: async_channel::Receiver<CommitNumber>,
 }
 
-impl<D: stream_desc::StreamDesc> Stream<D> {
+impl<T: Streamable> Stream<T> {
     #[must_use]
     fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
@@ -61,20 +60,20 @@ impl<D: stream_desc::StreamDesc> Stream<D> {
     }
 }
 
-impl<D: stream_desc::StreamDesc> Default for Stream<D> {
+impl<T: Streamable> Default for Stream<T> {
     fn default() -> Self { Self::new() }
 }
 
-impl<D: stream_desc::StreamDesc> store::Stream<D> for Stream<D> {
-    type CommittedEvent = CommittedEvent<D::Event>;
-    type EventIterator = EventIterator<D::Event>;
-    type EventSubscription = EventSubscription<D::Event>;
+impl<T: Streamable> store::Stream<T> for Stream<T> {
+    type CommittedEvent = CommittedEvent<T>;
+    type EventIterator = EventIterator<T>;
+    type EventSubscription = EventSubscription<T>;
 
-    fn id(&self) -> &D::Id { todo!() }
+    fn id(&self) -> &T::Id { todo!() }
 
     async fn commit(
         &mut self,
-        event: &D::Event,
+        event: &T,
     ) -> store::Result<impl store::CommittedEvent> {
         let commit_number = self.events.read().await.len().into();
         let committed_event = CommittedEvent {

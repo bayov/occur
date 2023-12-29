@@ -21,18 +21,15 @@ use crate::TvShowTrackEvent::{Created, WatchedEpisode};
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct TvShowTrackId(Uuid);
 
-struct TvShowTrackStreamDescription;
-
-impl occur::StreamDesc for TvShowTrackStreamDescription {
-    const NAME: &'static str = "tv_show_track";
-    type Id = TvShowTrackId;
-    type Event = TvShowTrackEvent;
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum TvShowTrackEvent {
     Created { tv_show_name: String },
     WatchedEpisode { season: u64, episode: u64 },
+}
+
+impl occur::Streamable for TvShowTrackEvent {
+    const STREAM_NAME: &'static str = "tv_show_track";
+    type Id = TvShowTrackId;
 }
 
 impl Event for TvShowTrackEvent {
@@ -61,7 +58,7 @@ fn fiddle() {
     let e2 = WatchedEpisode { season: 1, episode: 2 };
     let e3 = WatchedEpisode { season: 1, episode: 3 };
 
-    let mut store = store::inmem::Store::<TvShowTrackStreamDescription>::new();
+    let mut store = store::inmem::Store::<TvShowTrackEvent>::new();
 
     // remove "thread-pool" feature from futures if not using thread-pool
     let pool = futures::executor::ThreadPool::new().unwrap();
@@ -89,8 +86,7 @@ fn fiddle() {
     let e2 = WatchedEpisode { season: 1, episode: 2 };
     let e3 = WatchedEpisode { season: 1, episode: 3 };
 
-    let store =
-        Mutex::new(store::inmem::Store::<TvShowTrackStreamDescription>::new());
+    let store = Mutex::new(store::inmem::Store::<TvShowTrackEvent>::new());
 
     // remove "thread-pool" feature from futures if not using thread-pool
     let pool = futures::executor::ThreadPool::new().unwrap();
@@ -134,9 +130,8 @@ fn fiddle() {
     let e2 = WatchedEpisode { season: 1, episode: 2 };
     let e3 = WatchedEpisode { season: 1, episode: 3 };
 
-    let store = Arc::new(Mutex::new(store::inmem::Store::<
-        TvShowTrackStreamDescription,
-    >::new()));
+    let store =
+        Arc::new(Mutex::new(store::inmem::Store::<TvShowTrackEvent>::new()));
 
     // remove "thread-pool" feature from futures if not using thread-pool
     let mut pool = futures::executor::LocalPool::new();

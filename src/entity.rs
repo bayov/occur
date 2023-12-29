@@ -1,13 +1,13 @@
-use crate::stream_desc;
+use crate::Streamable;
 
 /// The result of folding an event stream.
-pub trait Entity<D: stream_desc::StreamDesc> {
-    fn new(id: D::Id, event: D::Event) -> Option<Self>
+pub trait Entity<T: Streamable> {
+    fn new(id: T::Id, event: T) -> Option<Self>
     where
         Self: Sized;
 
     #[must_use]
-    fn fold(self, event: D::Event) -> Self
+    fn fold(self, event: T) -> Self
     where
         Self: Sized;
 }

@@ -4,7 +4,7 @@
 use std::collections::HashSet;
 
 use occur::revision::{Convert, OldOrNew};
-use occur::{revision, Event, StreamDesc};
+use occur::{revision, Event, Streamable};
 
 use crate::example::user;
 
@@ -36,7 +36,7 @@ fn supported_and_convertible_revisions() {
     );
 
     assert_eq!(
-        user::Desc::supported_revisions(),
+        user::Event::convertible_revisions(),
         HashSet::from([
             // new revisions
             revision::Pair::new("Created", 0),
@@ -58,6 +58,12 @@ fn panics_when_old_and_new_event_revisions_intersect() {
         Foo,
         // has the same revision as SomeOldEvent::Foo_V1
         Bar,
+    }
+
+    impl Streamable for SomeEvent {
+        const STREAM_NAME: &'static str = "some_stream";
+        type Id = u32;
+        type OldEvent = SomeOldEvent;
     }
 
     impl Event for SomeEvent {
@@ -99,14 +105,5 @@ fn panics_when_old_and_new_event_revisions_intersect() {
         }
     }
 
-    struct SomeDesc;
-
-    impl StreamDesc for SomeDesc {
-        const NAME: &'static str = "some_stream";
-        type Id = u32;
-        type Event = SomeEvent;
-        type OldEvent = SomeOldEvent;
-    }
-
-    let _ = SomeDesc::supported_revisions();
+    let _ = SomeEvent::convertible_revisions();
 }

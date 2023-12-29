@@ -23,12 +23,10 @@
 #![allow(stable_features)]
 
 pub use entity::Entity;
-pub use event::Event;
+pub use event::{Event, Streamable};
 pub use revision::Revision;
-pub use stream_desc::StreamDesc;
 
 mod entity;
 mod event;
 pub mod revision;
 pub mod store;
-mod stream_desc;
