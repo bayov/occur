@@ -12,7 +12,7 @@
     never_type
 )]
 #![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
-// #![warn(missing_docs)] -- uncomment when ready
+// #![warn(missing_docs)] -- TODO: uncomment when ready
 #![allow(async_fn_in_trait)]
 // RustRover IDE doesn't realize that the return_position_impl_trait_in_trait
 // feature is stable, and marks usages as Errors:

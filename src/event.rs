@@ -5,13 +5,12 @@ use crate::{revision, Revision};
 
 /// An event that can be committed to an event stream.
 pub trait Event: Revision {
-    /// A name, which together with an [`Self::Id`] value identifies the stream
-    /// to which an event belongs to.
+    /// A name, which together with an [`Self::StreamId`] value identifies the
+    /// stream to which an event belongs to.
     const STREAM_NAME: &'static str;
 
-    /// An ID type that is used to uniquely identify the stream to which an
-    /// event belongs to.
-    type Id: Clone + Eq + Hash;
+    /// Used to uniquely identify the stream to which an event belongs to.
+    type StreamId: Clone + Eq + Hash;
 
     /// A type that holds old revisions that can be converted to `Self`.
     ///

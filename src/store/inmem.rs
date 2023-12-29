@@ -4,7 +4,7 @@ use std::time::SystemTime;
 
 use futures_locks::RwLock;
 
-use crate::store::CommitNumber;
+use crate::store::{stream, CommitNumber};
 use crate::{store, Event, Revision};
 
 pub type Time = SystemTime;
@@ -27,7 +27,7 @@ impl<T: Revision> store::CommittedEvent for CommittedEvent<T> {
 
 #[derive(Default)]
 pub struct Store<T: Event> {
-    events_by_stream_id: HashMap<T::Id, Stream<T>>,
+    events_by_stream_id: HashMap<T::StreamId, Stream<T>>,
 }
 
 impl<T: Event> Store<T> {
@@ -38,7 +38,7 @@ impl<T: Event> Store<T> {
 impl<T: Event> store::Store<T> for Store<T> {
     type Stream = Stream<T>;
 
-    fn stream(&mut self, id: T::Id) -> Self::Stream {
+    fn stream(&mut self, id: T::StreamId) -> Self::Stream {
         self.events_by_stream_id.entry(id).or_default().clone()
     }
 }
@@ -69,7 +69,7 @@ impl<T: Event> store::Stream<T> for Stream<T> {
     type EventIterator = EventIterator<T>;
     type EventSubscription = EventSubscription<T>;
 
-    fn id(&self) -> &T::Id { todo!() }
+    fn id(&self) -> &T::StreamId { todo!() }
 
     async fn commit(
         &mut self,
@@ -120,7 +120,7 @@ impl<T: Revision> EventIterator<T> {
     }
 }
 
-impl<T: Revision> store::EventIterator<CommittedEvent<T>> for EventIterator<T> {
+impl<T: Revision> stream::Iterator<CommittedEvent<T>> for EventIterator<T> {
     async fn next(&mut self) -> Option<CommittedEvent<T>> {
         let events = self.events.read().await;
         let event = events.get(usize::from(self.commit_number));
@@ -148,7 +148,7 @@ impl<T: Revision> EventSubscription<T> {
     }
 }
 
-impl<T: Revision> store::EventSubscription<CommittedEvent<T>>
+impl<T: Revision> stream::Subscription<CommittedEvent<T>>
     for EventSubscription<T>
 {
     async fn next(&mut self) -> Option<CommittedEvent<T>> {

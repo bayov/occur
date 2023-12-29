@@ -62,7 +62,7 @@ fn panics_when_revisions_intersect() {
 
     impl Event for SomeEvent {
         const STREAM_NAME: &'static str = "some_stream";
-        type Id = u32;
+        type StreamId = u32;
         type OldRevision = SomeOldEvent;
     }
 

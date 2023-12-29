@@ -1,46 +1,19 @@
 use std::error::Error;
 
 pub use committed_event::{CommitNumber, CommittedEvent};
+pub use stream::Stream;
 
 use crate::Event;
 
-pub mod committed_event;
+mod committed_event;
 pub mod error;
 pub mod inmem;
+pub mod stream;
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 pub trait Store<T: Event> {
     type Stream: Stream<T>;
 
-    fn stream(&mut self, id: T::Id) -> Self::Stream;
-}
-
-pub trait Stream<T: Event> {
-    type CommittedEvent: CommittedEvent<Event = T>;
-    type EventIterator: EventIterator<Self::CommittedEvent>;
-    type EventSubscription: EventSubscription<Self::CommittedEvent>;
-
-    fn id(&self) -> &T::Id;
-
-    async fn commit(&mut self, event: &T) -> Result<impl CommittedEvent>;
-
-    async fn read(
-        &self,
-        start_from: CommitNumber,
-    ) -> Result<Self::EventIterator>;
-
-    async fn subscribe(
-        &self,
-        start_from: CommitNumber,
-    ) -> Result<Self::EventSubscription>;
-}
-
-pub trait EventIterator<T: CommittedEvent> {
-    async fn next(&mut self) -> Option<T>;
-}
-
-pub trait EventSubscription<T: CommittedEvent> {
-    async fn next(&mut self) -> Option<T>;
-    fn stop(self);
+    fn stream(&mut self, id: T::StreamId) -> Self::Stream;
 }

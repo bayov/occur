@@ -6,13 +6,8 @@ use std::sync::{Arc, Mutex};
 
 use futures::join;
 use futures::task::SpawnExt;
-use occur::store::{
-    CommitNumber,
-    EventIterator,
-    EventSubscription,
-    Store,
-    Stream as _,
-};
+use occur::store::stream::{Iterator as _, Subscription as _};
+use occur::store::{CommitNumber, Store, Stream as _};
 use occur::{store, Revision};
 use uuid::Uuid;
 
@@ -29,7 +24,7 @@ enum TvShowTrackEvent {
 
 impl occur::Event for TvShowTrackEvent {
     const STREAM_NAME: &'static str = "tv_show_track";
-    type Id = TvShowTrackId;
+    type StreamId = TvShowTrackId;
 }
 
 impl Revision for TvShowTrackEvent {
