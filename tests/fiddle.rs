@@ -33,18 +33,15 @@ impl occur::Event for TvShowTrackEvent {
 }
 
 impl Revision for TvShowTrackEvent {
-    fn revision(&self) -> Self::Revision {
+    fn revision(&self) -> Self::Value {
         match &self {
-            Created { .. } => Self::Revision::new("Created", 0),
-            WatchedEpisode { .. } => Self::Revision::new("WatchedEpisode", 0),
+            Created { .. } => ("Created", 0),
+            WatchedEpisode { .. } => ("WatchedEpisode", 0),
         }
     }
 
-    fn supported_revisions() -> HashSet<Self::Revision> {
-        HashSet::from([
-            Self::Revision::new("Created", 0),
-            Self::Revision::new("WatchedEpisode", 0),
-        ])
+    fn revision_set() -> HashSet<Self::Value> {
+        HashSet::from([("Created", 0), ("WatchedEpisode", 0)])
     }
 }
 

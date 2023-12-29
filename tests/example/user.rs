@@ -18,29 +18,27 @@ pub enum Event {
 impl occur::Event for Event {
     const STREAM_NAME: &'static str = "user";
     type Id = Id;
-    type OldEvent = old::Event;
+    type OldRevision = old::Revision;
 }
 
 impl occur::Revision for Event {
-    fn revision(&self) -> Self::Revision {
+    fn revision(&self) -> Self::Value {
         match &self {
-            Event::Created { .. } => Self::Revision::new("Created", 0),
-            Event::Renamed { .. } => Self::Revision::new("Renamed", 0),
-            Event::Befriended { .. } => Self::Revision::new("Befriended", 0),
-            Event::PromotedToAdmin { .. } => {
-                Self::Revision::new("PromotedToAdmin", 0)
-            }
-            Event::Deactivated { .. } => Self::Revision::new("Deactivated", 1),
+            Event::Created { .. } => ("Created", 0),
+            Event::Renamed { .. } => ("Renamed", 0),
+            Event::Befriended { .. } => ("Befriended", 0),
+            Event::PromotedToAdmin { .. } => ("PromotedToAdmin", 0),
+            Event::Deactivated { .. } => ("Deactivated", 1),
         }
     }
 
-    fn supported_revisions() -> HashSet<Self::Revision> {
+    fn revision_set() -> HashSet<Self::Value> {
         HashSet::from([
-            Self::Revision::new("Created", 0),
-            Self::Revision::new("Renamed", 0),
-            Self::Revision::new("Befriended", 0),
-            Self::Revision::new("PromotedToAdmin", 0),
-            Self::Revision::new("Deactivated", 1),
+            ("Created", 0),
+            ("Renamed", 0),
+            ("Befriended", 0),
+            ("PromotedToAdmin", 0),
+            ("Deactivated", 1),
         ])
     }
 }
@@ -112,32 +110,30 @@ pub mod old {
 
     #[allow(non_camel_case_types)]
     #[derive(Debug, Clone, PartialEq, Eq)]
-    pub enum Event {
+    pub enum Revision {
         Deactivated_V0,
     }
 
-    impl occur::Revision for Event {
-        fn revision(&self) -> Self::Revision {
+    impl occur::Revision for Revision {
+        fn revision(&self) -> Self::Value {
             match &self {
-                Event::Deactivated_V0 => Self::Revision::new("Deactivated", 0),
+                Revision::Deactivated_V0 => ("Deactivated", 0),
             }
         }
 
-        fn supported_revisions() -> HashSet<Self::Revision> {
-            HashSet::from([Self::Revision::new("Deactivated", 0)])
+        fn revision_set() -> HashSet<Self::Value> {
+            HashSet::from([("Deactivated", 0)])
         }
     }
 
-    impl revision::Convert for Event {
-        type NewEvent = super::Event;
+    impl revision::Convert for Revision {
+        type New = super::Event;
 
-        fn convert(self) -> OldOrNew<Self, Self::NewEvent> {
+        fn convert(self) -> OldOrNew<Self, Self::New> {
             match self {
-                Self::Deactivated_V0 => {
-                    OldOrNew::New(Self::NewEvent::Deactivated {
-                        reason: "".to_owned(),
-                    })
-                }
+                Self::Deactivated_V0 => OldOrNew::New(Self::New::Deactivated {
+                    reason: "".to_owned(),
+                }),
             }
         }
     }
