@@ -16,7 +16,6 @@ pub enum Event {
 }
 
 impl occur::Event for Event {
-    const STREAM_NAME: &'static str = "user";
     type StreamId = Id;
     type OldRevision = old::Revision;
 }

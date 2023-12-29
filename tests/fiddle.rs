@@ -23,7 +23,6 @@ enum TvShowTrackEvent {
 }
 
 impl occur::Event for TvShowTrackEvent {
-    const STREAM_NAME: &'static str = "tv_show_track";
     type StreamId = TvShowTrackId;
 }
 
