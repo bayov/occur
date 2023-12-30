@@ -12,7 +12,7 @@ pub trait Stream<T: Event> {
         &mut self,
         event: &T,
         condition: commit::Condition,
-    ) -> crate::store::Result<impl CommittedEvent>;
+    ) -> crate::store::Result<Self::CommittedEvent>;
 
     async fn read(
         &self,

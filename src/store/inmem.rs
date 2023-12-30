@@ -76,7 +76,7 @@ impl<T: Event> store::Stream<T> for Stream<T> {
         &mut self,
         event: &T,
         condition: commit::Condition,
-    ) -> store::Result<impl store::CommittedEvent> {
+    ) -> store::Result<Self::CommittedEvent> {
         let mut c = CommittedEvent {
             // commit number is modified below before actually committing
             commit_number: 0,

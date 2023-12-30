@@ -1,3 +1,5 @@
+use crate::Revision;
+
 /// The sequence number of a committed event.
 ///
 /// Whenever an event is committed to an event stream it is assigned a
@@ -20,7 +22,7 @@ pub enum Condition {
 }
 
 pub trait CommittedEvent {
-    type Event;
+    type Event: Revision;
     type Time;
 
     fn event(&self) -> &Self::Event;
