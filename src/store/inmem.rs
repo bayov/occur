@@ -75,18 +75,29 @@ impl<T: Event> store::Stream<T> for Stream<T> {
     async fn commit(
         &mut self,
         event: &T,
-        _: commit::Condition,
+        condition: commit::Condition,
     ) -> store::Result<impl store::CommittedEvent> {
-        let events_count = self.events.read().await.len();
-        let commit_number = commit::Number::try_from(events_count).unwrap();
-        let committed_event = CommittedEvent {
-            event: event.clone(),
-            commit_number,
+        let mut c = CommittedEvent {
+            // commit number is modified below before actually committing
+            commit_number: 0,
             time: Time::now(),
+            event: event.clone(),
         };
-        self.events.write().await.push(committed_event.clone());
-        self.sender.send(commit_number).await.expect("Should not fail");
-        Ok(committed_event)
+
+        {
+            let mut guarded_events = self.events.write().await;
+            c.commit_number = guarded_events.len().try_into().unwrap();
+            match condition {
+                commit::Condition::None => {}
+                commit::Condition::Number(want_commit_number) => {
+                    assert_eq!(c.commit_number, want_commit_number);
+                }
+            }
+            guarded_events.push(c.clone());
+        }
+
+        self.sender.send(c.commit_number).await.unwrap();
+        Ok(c)
     }
 
     async fn read(
