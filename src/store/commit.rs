@@ -23,9 +23,7 @@ pub enum Condition {
 
 pub trait CommittedEvent {
     type Event: Revision;
-    type Time;
 
     fn event(&self) -> &Self::Event;
     fn commit_number(&self) -> Number;
-    fn time(&self) -> &Self::Time;
 }

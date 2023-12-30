@@ -12,17 +12,14 @@ pub type Time = SystemTime;
 #[derive(Clone, Debug)]
 pub struct CommittedEvent<T: Revision> {
     pub commit_number: commit::Number,
-    pub time: Time,
     pub event: T,
 }
 
 impl<T: Revision> store::CommittedEvent for CommittedEvent<T> {
     type Event = T;
-    type Time = Time;
 
     fn event(&self) -> &Self::Event { &self.event }
     fn commit_number(&self) -> commit::Number { self.commit_number }
-    fn time(&self) -> &Self::Time { &self.time }
 }
 
 #[derive(Default)]
@@ -80,7 +77,6 @@ impl<T: Event> store::Stream<T> for Stream<T> {
         let mut c = CommittedEvent {
             // commit number is modified below before actually committing
             commit_number: 0,
-            time: Time::now(),
             event: event.clone(),
         };
 
