@@ -11,7 +11,7 @@ categories = ["data-structures"]
 
 [dependencies]
 async-channel = "2.1.0"
-derive_more = { version = "1.0.0-beta.6", features = ["display", "index"] }
+derive_more = { version = "1.0.0-beta.6", features = ["display", "from"] }
 futures = { version = "0.3.29", features = ["thread-pool"] }
 futures-locks = "0.7.1"
 indoc = "2.0.4"

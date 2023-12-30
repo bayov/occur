@@ -1,4 +1,4 @@
-use crate::store::{CommitNumber, CommittedEvent};
+use crate::store::{commit, CommittedEvent};
 use crate::Event;
 
 pub trait Stream<T: Event> {
@@ -11,16 +11,17 @@ pub trait Stream<T: Event> {
     async fn commit(
         &mut self,
         event: &T,
+        condition: commit::Condition,
     ) -> crate::store::Result<impl CommittedEvent>;
 
     async fn read(
         &self,
-        start_from: CommitNumber,
+        start_from: commit::Number,
     ) -> crate::store::Result<Self::EventIterator>;
 
     async fn subscribe(
         &self,
-        start_from: CommitNumber,
+        start_from: commit::Number,
     ) -> crate::store::Result<Self::EventSubscription>;
 }
 

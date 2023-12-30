@@ -1,11 +1,11 @@
 use std::error::Error;
 
-pub use committed_event::{CommitNumber, CommittedEvent};
+pub use commit::CommittedEvent;
 pub use stream::Stream;
 
 use crate::Event;
 
-mod committed_event;
+pub mod commit;
 pub mod error;
 pub mod inmem;
 pub mod stream;

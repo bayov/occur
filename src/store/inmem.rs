@@ -4,14 +4,14 @@ use std::time::SystemTime;
 
 use futures_locks::RwLock;
 
-use crate::store::{stream, CommitNumber};
+use crate::store::{commit, stream};
 use crate::{store, Event, Revision};
 
 pub type Time = SystemTime;
 
 #[derive(Clone, Debug)]
 pub struct CommittedEvent<T: Revision> {
-    pub commit_number: CommitNumber,
+    pub commit_number: commit::Number,
     pub time: Time,
     pub event: T,
 }
@@ -21,7 +21,7 @@ impl<T: Revision> store::CommittedEvent for CommittedEvent<T> {
     type Time = Time;
 
     fn event(&self) -> &Self::Event { &self.event }
-    fn commit_number(&self) -> CommitNumber { self.commit_number }
+    fn commit_number(&self) -> commit::Number { self.commit_number }
     fn time(&self) -> &Self::Time { &self.time }
 }
 
@@ -48,8 +48,8 @@ type SmartVec<T> = Arc<RwLock<Vec<T>>>;
 #[derive(Clone)]
 pub struct Stream<T: Event> {
     events: SmartVec<CommittedEvent<T>>,
-    sender: async_channel::Sender<CommitNumber>,
-    receiver: async_channel::Receiver<CommitNumber>,
+    sender: async_channel::Sender<commit::Number>,
+    receiver: async_channel::Receiver<commit::Number>,
 }
 
 impl<T: Event> Stream<T> {
@@ -64,6 +64,7 @@ impl<T: Event> Default for Stream<T> {
     fn default() -> Self { Self::new() }
 }
 
+#[allow(clippy::future_not_send)]
 impl<T: Event> store::Stream<T> for Stream<T> {
     type CommittedEvent = CommittedEvent<T>;
     type EventIterator = EventIterator<T>;
@@ -74,8 +75,10 @@ impl<T: Event> store::Stream<T> for Stream<T> {
     async fn commit(
         &mut self,
         event: &T,
+        _: commit::Condition,
     ) -> store::Result<impl store::CommittedEvent> {
-        let commit_number = self.events.read().await.len().into();
+        let events_count = self.events.read().await.len();
+        let commit_number = commit::Number::try_from(events_count).unwrap();
         let committed_event = CommittedEvent {
             event: event.clone(),
             commit_number,
@@ -88,14 +91,14 @@ impl<T: Event> store::Stream<T> for Stream<T> {
 
     async fn read(
         &self,
-        start_commit_number: CommitNumber,
+        start_commit_number: commit::Number,
     ) -> store::Result<Self::EventIterator> {
         Ok(EventIterator::new(Arc::clone(&self.events), start_commit_number))
     }
 
     async fn subscribe(
         &self,
-        start_commit_number: CommitNumber,
+        start_commit_number: commit::Number,
     ) -> store::Result<Self::EventSubscription> {
         Ok(EventSubscription::new(
             Arc::clone(&self.events),
@@ -107,23 +110,25 @@ impl<T: Event> store::Stream<T> for Stream<T> {
 
 pub struct EventIterator<T: Revision> {
     events: SmartVec<CommittedEvent<T>>,
-    commit_number: CommitNumber,
+    commit_number: commit::Number,
 }
 
 impl<T: Revision> EventIterator<T> {
     #[must_use]
     const fn new(
         events: SmartVec<CommittedEvent<T>>,
-        start_commit_number: CommitNumber,
+        start_commit_number: commit::Number,
     ) -> Self {
         Self { events, commit_number: start_commit_number }
     }
 }
 
+#[allow(clippy::future_not_send)]
 impl<T: Revision> stream::Iterator<CommittedEvent<T>> for EventIterator<T> {
     async fn next(&mut self) -> Option<CommittedEvent<T>> {
         let events = self.events.read().await;
-        let event = events.get(usize::from(self.commit_number));
+        let index = usize::try_from(self.commit_number).unwrap();
+        let event = events.get(index);
         if event.is_some() {
             self.commit_number += 1;
         }
@@ -133,28 +138,30 @@ impl<T: Revision> stream::Iterator<CommittedEvent<T>> for EventIterator<T> {
 
 pub struct EventSubscription<T: Revision> {
     events: SmartVec<CommittedEvent<T>>,
-    commit_number: CommitNumber,
-    receiver: async_channel::Receiver<CommitNumber>,
+    commit_number: commit::Number,
+    receiver: async_channel::Receiver<commit::Number>,
 }
 
 impl<T: Revision> EventSubscription<T> {
     #[must_use]
     const fn new(
         events: SmartVec<CommittedEvent<T>>,
-        start_commit_number: CommitNumber,
-        receiver: async_channel::Receiver<CommitNumber>,
+        start_commit_number: commit::Number,
+        receiver: async_channel::Receiver<commit::Number>,
     ) -> Self {
         Self { events, commit_number: start_commit_number, receiver }
     }
 }
 
+#[allow(clippy::future_not_send)]
 impl<T: Revision> stream::Subscription<CommittedEvent<T>>
     for EventSubscription<T>
 {
     async fn next(&mut self) -> Option<CommittedEvent<T>> {
         {
             let events = self.events.read().await;
-            let event = events.get(usize::from(self.commit_number));
+            let index = usize::try_from(self.commit_number).unwrap();
+            let event = events.get(index);
             if let Some(event) = event {
                 self.commit_number += 1;
                 return Some((*event).clone());
@@ -163,8 +170,8 @@ impl<T: Revision> stream::Subscription<CommittedEvent<T>>
         while let Ok(commit_number) = self.receiver.recv().await {
             if commit_number >= self.commit_number {
                 let events = self.events.read().await;
-                let event =
-                    events.get(usize::from(self.commit_number)).unwrap();
+                let index = usize::try_from(self.commit_number).unwrap();
+                let event = events.get(index).unwrap();
                 self.commit_number += 1;
                 return Some((*event).clone());
             }
