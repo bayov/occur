@@ -8,7 +8,7 @@ use futures::join;
 use futures::task::SpawnExt;
 use occur::store::stream::{AsyncIterator as _, Subscription as _};
 use occur::store::{read, Store as _, Stream as _};
-use occur::{store, Revision};
+use occur::{revision, store, Revision};
 use uuid::Uuid;
 
 use crate::TvShowTrackEvent::{Created, WatchedEpisode};
@@ -24,9 +24,12 @@ enum TvShowTrackEvent {
 
 impl occur::Event for TvShowTrackEvent {
     type StreamId = TvShowTrackId;
+    type OldRevision = revision::Empty<Self>;
 }
 
 impl Revision for TvShowTrackEvent {
+    type Value = (&'static str, u8);
+
     fn revision(&self) -> Self::Value {
         match &self {
             Created { .. } => ("Created", 0),

@@ -14,11 +14,16 @@ use crate::Event;
 pub trait Revision: Clone + Send + Sync {
     /// Used as the revision value that uniquely distinguishes enum variants.
     ///
+    /// TODO:
+    ///     Not using `#![feature(associated_type_defaults)]` anymore, so the
+    ///     next paragraph needs to be updated. It'll probably refer to the
+    ///     yet-be-implemented derive-macro for Revision.
+    ///
     /// By default, this is a pair of a string name and revision number. The
     /// name typically matches the enum variant's identifier, and the revision
     /// number starts on 0 then increments by 1 every time a new revision is
     /// introduced for the enum variant.
-    type Value: Debug + Clone + Eq + Hash = (&'static str, u8);
+    type Value: Debug + Clone + Eq + Hash;
 
     /// Returns the revision value of the enum variant.
     fn revision(&self) -> Self::Value;
@@ -99,8 +104,8 @@ pub trait Convert: Revision {
 
 /// Represents a revision with no variants.
 ///
-/// Used as the default [`Event::OldRevision`] type, indicating that
-/// there are no old revision variants for the event.
+/// Use this type as [`Event::OldRevision`] to indicate that an event is yet to
+/// have any old revisions.
 pub struct Empty<T: Event>(!, PhantomData<T>);
 
 impl<T: Event> Clone for Empty<T> {

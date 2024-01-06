@@ -21,6 +21,8 @@ impl occur::Event for Event {
 }
 
 impl occur::Revision for Event {
+    type Value = (&'static str, u8);
+
     fn revision(&self) -> Self::Value {
         match &self {
             Event::Created { .. } => ("Created", 0),
@@ -116,6 +118,8 @@ pub mod old {
     }
 
     impl occur::Revision for Revision {
+        type Value = (&'static str, u8);
+
         fn revision(&self) -> Self::Value {
             match &self {
                 Revision::Deactivated_V0 => ("Deactivated", 0),

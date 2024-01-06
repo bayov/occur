@@ -66,6 +66,8 @@ fn panics_when_revisions_intersect() {
     }
 
     impl Revision for SomeEvent {
+        type Value = (&'static str, u8);
+
         fn revision(&self) -> Self::Value { unreachable!() }
 
         fn revision_set() -> HashSet<Self::Value> {
@@ -81,6 +83,8 @@ fn panics_when_revisions_intersect() {
     }
 
     impl Revision for SomeOldEvent {
+        type Value = (&'static str, u8);
+
         fn revision(&self) -> Self::Value { unreachable!() }
 
         fn revision_set() -> HashSet<Self::Value> {

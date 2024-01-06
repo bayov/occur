@@ -5,7 +5,6 @@
     type_alias_impl_trait,
     error_generic_member_access,
     marker_trait_attr,
-    associated_type_defaults,
     debug_closure_helpers,
     trait_alias,
     never_type

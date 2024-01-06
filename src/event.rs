@@ -10,12 +10,11 @@ pub trait Event: Revision {
 
     /// A type that holds old revisions that can be converted to `Self`.
     ///
-    /// By default, this is [`revision::Empty`], representing that there are no
-    /// existing old revisions.
+    /// Use [`revision::Empty`] when the event is yet to have any old revisions.
     ///
     /// See [`revision`] module documentation for details about event
     /// revisioning.
-    type OldRevision: revision::Convert<Event = Self> = revision::Empty<Self>;
+    type OldRevision: revision::Convert<Event = Self>;
 
     /// Returns the set of all supported revision values, which is the union of
     /// the revisions defined by `Self` and [`Self::OldRevision`].
