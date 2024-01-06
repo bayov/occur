@@ -7,7 +7,7 @@ pub trait Stream<T: Event>: Commit<T> + Read<T> {
     fn subscribe<R>(
         &self,
         start_from: commit::Number,
-        converter: impl read::Converter<T, Result = R> + Send + 'static,
+        converter: impl read::Converter<T, Result = R> + Send,
     ) -> impl Future<Output = Result<impl Subscription<Item = R>>> + Send;
 }
 

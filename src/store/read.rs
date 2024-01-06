@@ -21,7 +21,7 @@ impl<T: Event> Request<T> for Foo {
     fn limit(&self) -> usize { todo!() }
 }
 
-pub trait Converter<T: Event>: Send {
+pub trait Converter<T: Event>: Send + 'static {
     type Result;
     fn convert(&self, event: revision::OldOrNew<T>) -> Self::Result;
 }
@@ -44,6 +44,6 @@ pub trait Read<T: Event>: Send {
     fn read<R>(
         &self,
         start_from: commit::Number,
-        converter: impl Converter<T, Result = R> + Send + 'static,
+        converter: impl Converter<T, Result = R> + Send,
     ) -> impl Future<Output = Result<impl AsyncIterator<Item = R>>> + Send;
 }

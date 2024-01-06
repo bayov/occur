@@ -11,7 +11,7 @@ use crate::Event;
 ///
 /// Documentation for this trait assumes it is implemented for an enum type,
 /// and that each enum variant is assigned a unique revision value.
-pub trait Revision: Clone + Send + Sync {
+pub trait Revision: Clone + Send + Sync + 'static {
     /// Used as the revision value that uniquely distinguishes enum variants.
     ///
     /// TODO:

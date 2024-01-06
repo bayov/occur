@@ -19,7 +19,7 @@ impl<T: Event> Store<T> {
     pub fn new() -> Self { Self { events_by_stream_id: HashMap::default() } }
 }
 
-impl<T: Event + 'static> store::Store<T> for Store<T> {
+impl<T: Event> store::Store<T> for Store<T> {
     type Stream = Stream<T>;
 
     fn stream(&mut self, id: T::StreamId) -> Self::Stream {
@@ -76,11 +76,11 @@ impl<T: Event> store::Commit<T> for Stream<T> {
 }
 
 #[allow(clippy::manual_async_fn)]
-impl<T: Event + 'static> store::Read<T> for Stream<T> {
+impl<T: Event> store::Read<T> for Stream<T> {
     fn read<R>(
         &self,
         start_from: commit::Number,
-        converter: impl read::Converter<T, Result = R> + Send + 'static,
+        converter: impl read::Converter<T, Result = R> + Send,
     ) -> impl Future<Output = Result<impl AsyncIterator<Item = R>>> + Send {
         async move {
             Ok(EventIterator::new(
@@ -93,11 +93,11 @@ impl<T: Event + 'static> store::Read<T> for Stream<T> {
 }
 
 #[allow(clippy::manual_async_fn)]
-impl<T: Event + 'static> store::Stream<T> for Stream<T> {
+impl<T: Event> store::Stream<T> for Stream<T> {
     fn subscribe<R>(
         &self,
         start_from: commit::Number,
-        converter: impl read::Converter<T, Result = R> + Send + 'static,
+        converter: impl read::Converter<T, Result = R> + Send,
     ) -> impl Future<Output = Result<impl Subscription<Item = R>>> + Send {
         async move {
             Ok(EventSubscription::new(
@@ -138,8 +138,8 @@ where
 #[allow(clippy::future_not_send)]
 impl<T, C> AsyncIterator for EventIterator<T, C>
 where
-    T: Event + 'static,
-    C: read::Converter<T> + 'static,
+    T: Event,
+    C: read::Converter<T>,
 {
     type Item = C::Result;
 
@@ -184,8 +184,8 @@ where
 #[allow(clippy::future_not_send)]
 impl<T, C> Subscription for EventSubscription<T, C>
 where
-    T: Event + 'static,
-    C: read::Converter<T> + 'static,
+    T: Event,
+    C: read::Converter<T>,
 {
     type Item = C::Result;
 
