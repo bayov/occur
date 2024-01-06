@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use futures_locks::RwLock;
 
-use crate::store::stream::{AsyncIterator, Subscription};
+use crate::store::read::AsyncIterator;
+use crate::store::stream::Subscription;
 use crate::store::{commit, read, Result};
 use crate::{revision, store, Event};
 
@@ -47,8 +48,7 @@ impl<T: Event> Default for Stream<T> {
     fn default() -> Self { Self::new() }
 }
 
-#[allow(clippy::manual_async_fn)]
-impl<T: Event + 'static> store::Stream<T> for Stream<T> {
+impl<T: Event> store::Commit<T> for Stream<T> {
     fn commit(
         &mut self,
         request: impl commit::Request<T>,
@@ -73,7 +73,10 @@ impl<T: Event + 'static> store::Stream<T> for Stream<T> {
             Ok(commit_number)
         }
     }
+}
 
+#[allow(clippy::manual_async_fn)]
+impl<T: Event + 'static> store::Read<T> for Stream<T> {
     fn read<R>(
         &self,
         start_from: commit::Number,
@@ -87,7 +90,10 @@ impl<T: Event + 'static> store::Stream<T> for Stream<T> {
             ))
         }
     }
+}
 
+#[allow(clippy::manual_async_fn)]
+impl<T: Event + 'static> store::Stream<T> for Stream<T> {
     fn subscribe<R>(
         &self,
         start_from: commit::Number,

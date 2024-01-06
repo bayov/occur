@@ -1,4 +1,6 @@
-use crate::{revision, Event};
+use std::future::Future;
+
+use crate::{revision, store, Event};
 
 /// The sequence number of a committed event.
 ///
@@ -36,6 +38,13 @@ impl<T: Event> Request<T> for &T {
 impl<T: Event> Request<T> for &revision::OldOrNew<T> {
     fn event(&self) -> revision::OldOrNewRef<'_, T> { self.borrow() }
     fn condition(&self) -> Condition { Condition::None }
+}
+
+pub trait Commit<T: Event>: Send {
+    fn commit(
+        &mut self,
+        request: impl Request<T>,
+    ) -> impl Future<Output = store::Result<Number>> + Send;
 }
 
 // pub trait CommittedEvent {

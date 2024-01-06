@@ -1,4 +1,6 @@
-use crate::store::commit;
+use std::future::Future;
+
+use crate::store::{commit, Result};
 use crate::{revision, Event};
 
 pub trait Request<T: Event> {
@@ -31,4 +33,17 @@ impl<T: Event> Converter<T> for NewRevision {
     fn convert(&self, event: revision::OldOrNew<T>) -> Self::Result {
         event.to_new()
     }
+}
+
+pub trait AsyncIterator: Send {
+    type Item;
+    fn next(&mut self) -> impl Future<Output = Option<Self::Item>> + Send;
+}
+
+pub trait Read<T: Event>: Send {
+    fn read<R>(
+        &self,
+        start_from: commit::Number,
+        converter: impl Converter<T, Result = R> + Send + 'static,
+    ) -> impl Future<Output = Result<impl AsyncIterator<Item = R>>> + Send;
 }

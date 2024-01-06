@@ -5,9 +5,10 @@ use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
 use futures::join;
-use futures::task::SpawnExt;
-use occur::store::stream::{AsyncIterator as _, Subscription as _};
-use occur::store::{read, Store as _, Stream as _};
+use futures::task::SpawnExt as _;
+use occur::store::read::AsyncIterator as _;
+use occur::store::stream::Subscription as _;
+use occur::store::{read, Commit as _, Read as _, Store as _, Stream as _};
 use occur::{revision, store, Revision};
 use uuid::Uuid;
 

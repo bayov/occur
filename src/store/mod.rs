@@ -1,5 +1,7 @@
 use std::error::Error;
 
+pub use commit::Commit;
+pub use read::Read;
 pub use stream::Stream;
 
 use crate::Event;
