@@ -1,26 +1,12 @@
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use futures_locks::RwLock;
 
-use crate::store::{commit, stream};
-use crate::{store, Event, Revision};
-
-pub type Time = SystemTime;
-
-#[derive(Clone, Debug)]
-pub struct CommittedEvent<T: Revision> {
-    pub commit_number: commit::Number,
-    pub event: T,
-}
-
-impl<T: Revision> store::CommittedEvent for CommittedEvent<T> {
-    type Event = T;
-
-    fn event(&self) -> &Self::Event { &self.event }
-    fn commit_number(&self) -> commit::Number { self.commit_number }
-}
+use crate::store::stream::{AsyncIterator, Subscription};
+use crate::store::{commit, read, Result};
+use crate::{revision, store, Event};
 
 #[derive(Default)]
 pub struct Store<T: Event> {
@@ -32,7 +18,7 @@ impl<T: Event> Store<T> {
     pub fn new() -> Self { Self { events_by_stream_id: HashMap::default() } }
 }
 
-impl<T: Event> store::Store<T> for Store<T> {
+impl<T: Event + 'static> store::Store<T> for Store<T> {
     type Stream = Stream<T>;
 
     fn stream(&mut self, id: T::StreamId) -> Self::Stream {
@@ -44,7 +30,7 @@ type SmartVec<T> = Arc<RwLock<Vec<T>>>;
 
 #[derive(Clone)]
 pub struct Stream<T: Event> {
-    events: SmartVec<CommittedEvent<T>>,
+    events: SmartVec<revision::OldOrNew<T>>,
     sender: async_channel::Sender<commit::Number>,
     receiver: async_channel::Receiver<commit::Number>,
 }
@@ -61,126 +47,159 @@ impl<T: Event> Default for Stream<T> {
     fn default() -> Self { Self::new() }
 }
 
-#[allow(clippy::future_not_send)]
-impl<T: Event> store::Stream<T> for Stream<T> {
-    type CommittedEvent = CommittedEvent<T>;
-    type EventIterator = EventIterator<T>;
-    type EventSubscription = EventSubscription<T>;
-
-    fn id(&self) -> &T::StreamId { todo!() }
-
-    async fn commit(
+#[allow(clippy::manual_async_fn)]
+impl<T: Event + 'static> store::Stream<T> for Stream<T> {
+    fn commit(
         &mut self,
-        event: &T,
-        condition: commit::Condition,
-    ) -> store::Result<Self::CommittedEvent> {
-        let mut c = CommittedEvent {
-            // commit number is modified below before actually committing
-            commit_number: 0,
-            event: event.clone(),
-        };
-
-        {
-            let mut guarded_events = self.events.write().await;
-            c.commit_number = guarded_events.len().try_into().unwrap();
-            match condition {
-                commit::Condition::None => {}
-                commit::Condition::Number(want_commit_number) => {
-                    assert_eq!(c.commit_number, want_commit_number);
+        request: impl commit::Request<T>,
+    ) -> impl Future<Output = Result<commit::Number>> + Send {
+        let event = request.event().to_owned();
+        let condition = request.condition();
+        async move {
+            let commit_number;
+            {
+                let mut guarded_events = self.events.write().await;
+                commit_number = guarded_events.len().try_into().unwrap();
+                match condition {
+                    commit::Condition::None => {}
+                    commit::Condition::Number(want_commit_number) => {
+                        assert_eq!(commit_number, want_commit_number);
+                    }
                 }
+                guarded_events.push(event);
             }
-            guarded_events.push(c.clone());
+
+            self.sender.send(commit_number).await.unwrap();
+            Ok(commit_number)
         }
-
-        self.sender.send(c.commit_number).await.unwrap();
-        Ok(c)
     }
 
-    async fn read(
+    fn read<R>(
         &self,
-        start_commit_number: commit::Number,
-    ) -> store::Result<Self::EventIterator> {
-        Ok(EventIterator::new(Arc::clone(&self.events), start_commit_number))
+        start_from: commit::Number,
+        converter: impl read::Converter<T, Result = R> + Send + 'static,
+    ) -> impl Future<Output = Result<impl AsyncIterator<Item = R>>> + Send {
+        async move {
+            Ok(EventIterator::new(
+                Arc::clone(&self.events),
+                start_from,
+                converter,
+            ))
+        }
     }
 
-    async fn subscribe(
+    fn subscribe<R>(
         &self,
-        start_commit_number: commit::Number,
-    ) -> store::Result<Self::EventSubscription> {
-        Ok(EventSubscription::new(
-            Arc::clone(&self.events),
-            start_commit_number,
-            self.receiver.clone(),
-        ))
+        start_from: commit::Number,
+        converter: impl read::Converter<T, Result = R> + Send + 'static,
+    ) -> impl Future<Output = Result<impl Subscription<Item = R>>> + Send {
+        async move {
+            Ok(EventSubscription::new(
+                Arc::clone(&self.events),
+                start_from,
+                self.receiver.clone(),
+                converter,
+            ))
+        }
     }
 }
 
-pub struct EventIterator<T: Revision> {
-    events: SmartVec<CommittedEvent<T>>,
+pub struct EventIterator<T, C>
+where
+    T: Event,
+    C: read::Converter<T>,
+{
+    events: SmartVec<revision::OldOrNew<T>>,
     commit_number: commit::Number,
+    converter: C,
 }
 
-impl<T: Revision> EventIterator<T> {
+impl<T, C> EventIterator<T, C>
+where
+    T: Event,
+    C: read::Converter<T>,
+{
     #[must_use]
     const fn new(
-        events: SmartVec<CommittedEvent<T>>,
+        events: SmartVec<revision::OldOrNew<T>>,
         start_commit_number: commit::Number,
+        converter: C,
     ) -> Self {
-        Self { events, commit_number: start_commit_number }
+        Self { events, commit_number: start_commit_number, converter }
     }
 }
 
 #[allow(clippy::future_not_send)]
-impl<T: Revision> stream::Iterator<CommittedEvent<T>> for EventIterator<T> {
-    async fn next(&mut self) -> Option<CommittedEvent<T>> {
+impl<T, C> AsyncIterator for EventIterator<T, C>
+where
+    T: Event + 'static,
+    C: read::Converter<T> + 'static,
+{
+    type Item = C::Result;
+
+    async fn next(&mut self) -> Option<C::Result> {
         let events = self.events.read().await;
         let index = usize::try_from(self.commit_number).unwrap();
-        let event = events.get(index);
-        if event.is_some() {
+        let old_or_new = events.get(index);
+        old_or_new.map(|old_or_new| {
             self.commit_number += 1;
-        }
-        event.cloned()
+            self.converter.convert(old_or_new.clone())
+        })
     }
 }
 
-pub struct EventSubscription<T: Revision> {
-    events: SmartVec<CommittedEvent<T>>,
+pub struct EventSubscription<T, C>
+where
+    T: Event,
+    C: read::Converter<T>,
+{
+    events: SmartVec<revision::OldOrNew<T>>,
     commit_number: commit::Number,
     receiver: async_channel::Receiver<commit::Number>,
+    converter: C,
 }
 
-impl<T: Revision> EventSubscription<T> {
+impl<T, C> EventSubscription<T, C>
+where
+    T: Event,
+    C: read::Converter<T>,
+{
     #[must_use]
     const fn new(
-        events: SmartVec<CommittedEvent<T>>,
+        events: SmartVec<revision::OldOrNew<T>>,
         start_commit_number: commit::Number,
         receiver: async_channel::Receiver<commit::Number>,
+        converter: C,
     ) -> Self {
-        Self { events, commit_number: start_commit_number, receiver }
+        Self { events, commit_number: start_commit_number, receiver, converter }
     }
 }
 
 #[allow(clippy::future_not_send)]
-impl<T: Revision> stream::Subscription<CommittedEvent<T>>
-    for EventSubscription<T>
+impl<T, C> Subscription for EventSubscription<T, C>
+where
+    T: Event + 'static,
+    C: read::Converter<T> + 'static,
 {
-    async fn next(&mut self) -> Option<CommittedEvent<T>> {
+    type Item = C::Result;
+
+    async fn next(&mut self) -> Option<C::Result> {
         {
             let events = self.events.read().await;
             let index = usize::try_from(self.commit_number).unwrap();
-            let event = events.get(index);
-            if let Some(event) = event {
+            let old_or_new = events.get(index);
+            if let Some(old_or_new) = old_or_new {
                 self.commit_number += 1;
-                return Some((*event).clone());
+                return Some(self.converter.convert(old_or_new.clone()));
             }
         }
         while let Ok(commit_number) = self.receiver.recv().await {
             if commit_number >= self.commit_number {
                 let events = self.events.read().await;
                 let index = usize::try_from(self.commit_number).unwrap();
-                let event = events.get(index).unwrap();
+                let old_or_new = events.get(index).unwrap();
                 self.commit_number += 1;
-                return Some((*event).clone());
+                return Some(self.converter.convert(old_or_new.clone()));
             }
         }
         None

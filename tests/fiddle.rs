@@ -6,8 +6,8 @@ use std::sync::{Arc, Mutex};
 
 use futures::join;
 use futures::task::SpawnExt;
-use occur::store::stream::{Iterator as _, Subscription as _};
-use occur::store::{commit, Store, Stream as _};
+use occur::store::stream::{AsyncIterator as _, Subscription as _};
+use occur::store::{read, Store as _, Stream as _};
 use occur::{store, Revision};
 use uuid::Uuid;
 
@@ -56,12 +56,12 @@ fn fiddle() {
 
     let t = pool.spawn_with_handle(async move {
         let mut stream = store.stream(id);
-        stream.commit(&e0, commit::Condition::None).await.expect("wtf?");
-        stream.commit(&e1, commit::Condition::None).await.expect("wtf?");
-        stream.commit(&e2, commit::Condition::None).await.expect("wtf?");
-        stream.commit(&e3, commit::Condition::None).await.expect("wtf?");
+        stream.commit(&e0).await.expect("wtf?");
+        stream.commit(&e1).await.expect("wtf?");
+        stream.commit(&e2).await.expect("wtf?");
+        stream.commit(&e3).await.expect("wtf?");
 
-        let mut it = stream.read(1).await.expect("wtf?");
+        let mut it = stream.read(1, read::NewRevision).await.expect("wtf?");
         while let Some(event) = it.next().await {
             println!("read {:?}", event);
         }
@@ -85,16 +85,17 @@ fn fiddle() {
     let t = pool.spawn_with_handle(async move {
         {
             let mut stream = store.lock().unwrap().stream(id.clone());
-            stream.commit(&e0, commit::Condition::None).await.expect("wtf?");
-            stream.commit(&e1, commit::Condition::None).await.expect("wtf?");
+            stream.commit(&e0).await.expect("wtf?");
+            stream.commit(&e1).await.expect("wtf?");
         }
 
         let f1 = async {
             let stream = store.lock().unwrap().stream(id.clone());
-            let mut it = stream.subscribe(1).await.expect("wtf?");
+            let mut it =
+                stream.subscribe(1, read::NewRevision).await.expect("wtf?");
             while let Some(event) = it.next().await {
-                println!("subscriber read{:?}", event);
-                if let WatchedEpisode { episode, season: _ } = event.event {
+                println!("subscriber read {:?}", event);
+                if let WatchedEpisode { episode, season: _ } = event {
                     if episode == 3 {
                         break;
                     }
@@ -104,8 +105,8 @@ fn fiddle() {
 
         let f2 = async {
             let mut stream = store.lock().unwrap().stream(id.clone());
-            stream.commit(&e2, commit::Condition::None).await.expect("wtf?");
-            stream.commit(&e3, commit::Condition::None).await.expect("wtf?");
+            stream.commit(&e2).await.expect("wtf?");
+            stream.commit(&e3).await.expect("wtf?");
         };
 
         join!(f1, f2);
@@ -134,8 +135,8 @@ fn fiddle() {
     spawner
         .spawn(async move {
             let mut stream = store2.lock().unwrap().stream(id2);
-            stream.commit(&e0, commit::Condition::None).await.expect("wtf?");
-            stream.commit(&e1, commit::Condition::None).await.expect("wtf?");
+            stream.commit(&e0).await.expect("wtf?");
+            stream.commit(&e1).await.expect("wtf?");
         })
         .expect("wtf?");
 
@@ -147,10 +148,11 @@ fn fiddle() {
     spawner
         .spawn(async move {
             let stream = store2.lock().unwrap().stream(id2);
-            let mut it = stream.subscribe(1).await.expect("wtf?");
+            let mut it =
+                stream.subscribe(1, read::NewRevision).await.expect("wtf?");
             while let Some(event) = it.next().await {
                 println!("subscriber read {:?}", event);
-                if let WatchedEpisode { episode, season: _ } = event.event {
+                if let WatchedEpisode { episode, season: _ } = event {
                     if episode == 3 {
                         break;
                     }
@@ -165,8 +167,8 @@ fn fiddle() {
     spawner
         .spawn(async move {
             let mut stream = store2.lock().unwrap().stream(id2);
-            stream.commit(&e2, commit::Condition::None).await.expect("wtf?");
-            stream.commit(&e3, commit::Condition::None).await.expect("wtf?");
+            stream.commit(&e2).await.expect("wtf?");
+            stream.commit(&e3).await.expect("wtf?");
         })
         .expect("wtf?");
 

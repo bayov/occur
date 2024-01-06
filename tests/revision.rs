@@ -3,8 +3,8 @@
 
 use std::collections::HashSet;
 
-use occur::revision::{Convert, OldOrNew};
-use occur::{Event, Revision};
+use occur::revision::Convert as _;
+use occur::{revision, Event, Revision};
 
 use crate::example::user;
 
@@ -88,12 +88,12 @@ fn panics_when_revisions_intersect() {
         }
     }
 
-    impl Convert for SomeOldEvent {
-        type New = SomeEvent;
-        fn convert(self) -> OldOrNew<Self, Self::New> {
+    impl revision::Convert for SomeOldEvent {
+        type Event = SomeEvent;
+        fn convert(self) -> revision::OldOrNew<Self::Event, Self> {
             match self {
-                Self::Foo_V0 => OldOrNew::Old(Self::Foo_V1),
-                Self::Foo_V1 => OldOrNew::New(Self::New::Foo),
+                Self::Foo_V0 => revision::OldOrNew::Old(Self::Foo_V1),
+                Self::Foo_V1 => SomeEvent::Foo.into(),
             }
         }
     }

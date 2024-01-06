@@ -1,4 +1,4 @@
-use crate::Revision;
+use crate::{revision, Event};
 
 /// The sequence number of a committed event.
 ///
@@ -21,9 +21,27 @@ pub enum Condition {
     Number(Number),
 }
 
-pub trait CommittedEvent {
-    type Event: Revision;
-
-    fn event(&self) -> &Self::Event;
-    fn commit_number(&self) -> Number;
+pub trait Request<T: Event> {
+    fn event(&self) -> revision::OldOrNewRef<'_, T>;
+    fn condition(&self) -> Condition;
 }
+
+impl<T: Event> Request<T> for &T {
+    fn event(&self) -> revision::OldOrNewRef<'_, T> {
+        revision::OldOrNewRef::New(self)
+    }
+    fn condition(&self) -> Condition { Condition::None }
+}
+
+impl<T: Event> Request<T> for &revision::OldOrNew<T> {
+    fn event(&self) -> revision::OldOrNewRef<'_, T> { self.borrow() }
+    fn condition(&self) -> Condition { Condition::None }
+}
+
+// pub trait CommittedEvent {
+//     type Event: Event;
+//
+//     fn event(&self) -> &Self::Event;
+//     fn take_event(self) -> Self::Event;
+//     fn commit_number(&self) -> Number;
+// }

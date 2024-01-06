@@ -15,7 +15,7 @@ pub trait Event: Revision {
     ///
     /// See [`revision`] module documentation for details about event
     /// revisioning.
-    type OldRevision: revision::Convert<New = Self> = revision::Empty<Self>;
+    type OldRevision: revision::Convert<Event = Self> = revision::Empty<Self>;
 
     /// Returns the set of all supported revision values, which is the union of
     /// the revisions defined by `Self` and [`Self::OldRevision`].

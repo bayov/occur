@@ -1,35 +1,34 @@
-use crate::store::{commit, CommittedEvent};
+use std::future::Future;
+
+use crate::store::{commit, read, Result};
 use crate::Event;
 
-pub trait Stream<T: Event> {
-    type CommittedEvent: CommittedEvent<Event = T>;
-    type EventIterator: Iterator<Self::CommittedEvent>;
-    type EventSubscription: Subscription<Self::CommittedEvent>;
-
-    fn id(&self) -> &T::StreamId;
-
-    async fn commit(
+pub trait Stream<T: Event>: Send {
+    fn commit(
         &mut self,
-        event: &T,
-        condition: commit::Condition,
-    ) -> crate::store::Result<Self::CommittedEvent>;
+        request: impl commit::Request<T>,
+    ) -> impl Future<Output = Result<commit::Number>> + Send;
 
-    async fn read(
+    fn read<R>(
         &self,
         start_from: commit::Number,
-    ) -> crate::store::Result<Self::EventIterator>;
+        converter: impl read::Converter<T, Result = R> + Send + 'static,
+    ) -> impl Future<Output = Result<impl AsyncIterator<Item = R>>> + Send;
 
-    async fn subscribe(
+    fn subscribe<R>(
         &self,
         start_from: commit::Number,
-    ) -> crate::store::Result<Self::EventSubscription>;
+        converter: impl read::Converter<T, Result = R> + Send + 'static,
+    ) -> impl Future<Output = Result<impl Subscription<Item = R>>> + Send;
 }
 
-pub trait Iterator<T: CommittedEvent> {
-    async fn next(&mut self) -> Option<T>;
+pub trait AsyncIterator: Send {
+    type Item;
+    fn next(&mut self) -> impl Future<Output = Option<Self::Item>> + Send;
 }
 
-pub trait Subscription<T: CommittedEvent> {
-    async fn next(&mut self) -> Option<T>;
+pub trait Subscription: Send {
+    type Item;
+    fn next(&mut self) -> impl Future<Output = Option<Self::Item>> + Send;
     fn stop(self);
 }

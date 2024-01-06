@@ -107,6 +107,8 @@ pub mod old {
     use occur::revision;
     use occur::revision::OldOrNew;
 
+    use crate::example::user::Event;
+
     #[allow(non_camel_case_types)]
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum Revision {
@@ -126,13 +128,13 @@ pub mod old {
     }
 
     impl revision::Convert for Revision {
-        type New = super::Event;
+        type Event = Event;
 
-        fn convert(self) -> OldOrNew<Self, Self::New> {
+        fn convert(self) -> OldOrNew<Self::Event> {
             match self {
-                Self::Deactivated_V0 => OldOrNew::New(Self::New::Deactivated {
-                    reason: "".to_owned(),
-                }),
+                Self::Deactivated_V0 => {
+                    Event::Deactivated { reason: "".to_owned() }.into()
+                }
             }
         }
     }
