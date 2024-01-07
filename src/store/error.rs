@@ -9,3 +9,8 @@ pub struct StreamNotFound<ID> {
     #[cfg(feature = "backtrace")]
     pub backtrace: Backtrace,
 }
+
+// TODO: Error handling.
+//  * `thiserror` to define types.
+//  * Consider generic composition to allow user-defined errors to extend.
+//  * App should use `eyre` (anyhow fork) or `error-stack`.
