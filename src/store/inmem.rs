@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use futures_locks::RwLock;
 
-use crate::{Event, revision, store};
-use crate::store::{commit, read, Result};
 use crate::store::read::AsyncIterator;
 use crate::store::stream::Subscription;
+use crate::store::{commit, read, Result};
+use crate::{revision, store, Event};
 
 #[derive(Default)]
 pub struct Store<T: Event> {
@@ -75,13 +75,16 @@ impl<T: Event> store::Commit<T> for Stream<T> {
     }
 }
 
+#[rustfmt::skip]
 #[allow(clippy::manual_async_fn)]
 impl<T: Event> store::Read<T> for Stream<T> {
     fn read<R>(
         &self,
         request: impl read::Request<T, Result=R>,
     ) -> impl Future<Output = Result<impl AsyncIterator<Item = R>>> + Send {
-        async move { Ok(EventIterator::new(Arc::clone(&self.events), &request)) }
+        async move {
+            Ok(EventIterator::new(Arc::clone(&self.events), &request))
+        }
     }
 }
 
@@ -89,7 +92,7 @@ impl<T: Event> store::Read<T> for Stream<T> {
 impl<T: Event> store::Stream<T> for Stream<T> {
     fn subscribe<R>(
         &self,
-        request: impl read::Request<T, Result=R>,
+        request: impl read::Request<T, Result = R>,
     ) -> impl Future<Output = Result<impl Subscription<Item = R>>> + Send {
         async move {
             Ok(EventSubscription::new(
