@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use futures_locks::RwLock;
 
+use crate::{Event, revision, store};
+use crate::store::{commit, read, Result};
 use crate::store::read::AsyncIterator;
 use crate::store::stream::Subscription;
-use crate::store::{commit, read, Result};
-use crate::{revision, store, Event};
 
 #[derive(Default)]
 pub struct Store<T: Event> {
@@ -79,16 +79,9 @@ impl<T: Event> store::Commit<T> for Stream<T> {
 impl<T: Event> store::Read<T> for Stream<T> {
     fn read<R>(
         &self,
-        start_from: commit::Number,
-        converter: impl read::Converter<T, Result = R> + Send,
+        request: impl read::Request<T, Result=R>,
     ) -> impl Future<Output = Result<impl AsyncIterator<Item = R>>> + Send {
-        async move {
-            Ok(EventIterator::new(
-                Arc::clone(&self.events),
-                start_from,
-                converter,
-            ))
-        }
+        async move { Ok(EventIterator::new(Arc::clone(&self.events), &request)) }
     }
 }
 
@@ -96,107 +89,121 @@ impl<T: Event> store::Read<T> for Stream<T> {
 impl<T: Event> store::Stream<T> for Stream<T> {
     fn subscribe<R>(
         &self,
-        start_from: commit::Number,
-        converter: impl read::Converter<T, Result = R> + Send,
+        request: impl read::Request<T, Result=R>,
     ) -> impl Future<Output = Result<impl Subscription<Item = R>>> + Send {
         async move {
             Ok(EventSubscription::new(
                 Arc::clone(&self.events),
-                start_from,
+                &request,
                 self.receiver.clone(),
-                converter,
             ))
         }
     }
 }
 
-pub struct EventIterator<T, C>
+pub struct EventIterator<T, R>
 where
     T: Event,
-    C: read::Converter<T>,
+    R: read::Request<T>,
 {
     events: SmartVec<revision::OldOrNew<T>>,
     commit_number: commit::Number,
-    converter: C,
+    limit: usize,
+    phantom: std::marker::PhantomData<R>,
 }
 
-impl<T, C> EventIterator<T, C>
+impl<T, R> EventIterator<T, R>
 where
     T: Event,
-    C: read::Converter<T>,
+    R: read::Request<T>,
 {
     #[must_use]
-    const fn new(
-        events: SmartVec<revision::OldOrNew<T>>,
-        start_commit_number: commit::Number,
-        converter: C,
-    ) -> Self {
-        Self { events, commit_number: start_commit_number, converter }
+    fn new(events: SmartVec<revision::OldOrNew<T>>, request: &R) -> Self {
+        Self {
+            events,
+            commit_number: request.start_from(),
+            limit: request.limit().unwrap_or(usize::MAX),
+            phantom: std::marker::PhantomData,
+        }
     }
 }
 
 #[allow(clippy::future_not_send)]
-impl<T, C> AsyncIterator for EventIterator<T, C>
+impl<T, R> AsyncIterator for EventIterator<T, R>
 where
     T: Event,
-    C: read::Converter<T>,
+    R: read::Request<T>,
 {
-    type Item = C::Result;
+    type Item = R::Result;
 
-    async fn next(&mut self) -> Option<C::Result> {
+    async fn next(&mut self) -> Option<R::Result> {
+        if self.limit == 0 {
+            return None;
+        }
         let events = self.events.read().await;
         let index = usize::try_from(self.commit_number).unwrap();
         let old_or_new = events.get(index);
         old_or_new.map(|old_or_new| {
             self.commit_number += 1;
-            self.converter.convert(old_or_new.clone())
+            self.limit -= 1;
+            R::convert(old_or_new.clone())
         })
     }
 }
 
-pub struct EventSubscription<T, C>
+pub struct EventSubscription<T, R>
 where
     T: Event,
-    C: read::Converter<T>,
+    R: read::Request<T>,
 {
     events: SmartVec<revision::OldOrNew<T>>,
     commit_number: commit::Number,
+    limit: usize,
     receiver: async_channel::Receiver<commit::Number>,
-    converter: C,
+    phantom: std::marker::PhantomData<R>,
 }
 
-impl<T, C> EventSubscription<T, C>
+impl<T, R> EventSubscription<T, R>
 where
     T: Event,
-    C: read::Converter<T>,
+    R: read::Request<T>,
 {
     #[must_use]
-    const fn new(
+    fn new(
         events: SmartVec<revision::OldOrNew<T>>,
-        start_commit_number: commit::Number,
+        request: &R,
         receiver: async_channel::Receiver<commit::Number>,
-        converter: C,
     ) -> Self {
-        Self { events, commit_number: start_commit_number, receiver, converter }
+        Self {
+            events,
+            commit_number: request.start_from(),
+            limit: request.limit().unwrap_or(usize::MAX),
+            receiver,
+            phantom: std::marker::PhantomData,
+        }
     }
 }
 
 #[allow(clippy::future_not_send)]
-impl<T, C> Subscription for EventSubscription<T, C>
+impl<T, R> Subscription for EventSubscription<T, R>
 where
     T: Event,
-    C: read::Converter<T>,
+    R: read::Request<T>,
 {
-    type Item = C::Result;
+    type Item = R::Result;
 
-    async fn next(&mut self) -> Option<C::Result> {
+    async fn next(&mut self) -> Option<R::Result> {
+        if self.limit == 0 {
+            return None;
+        }
         {
             let events = self.events.read().await;
             let index = usize::try_from(self.commit_number).unwrap();
             let old_or_new = events.get(index);
             if let Some(old_or_new) = old_or_new {
                 self.commit_number += 1;
-                return Some(self.converter.convert(old_or_new.clone()));
+                self.limit -= 1;
+                return Some(R::convert(old_or_new.clone()));
             }
         }
         while let Ok(commit_number) = self.receiver.recv().await {
@@ -205,7 +212,8 @@ where
                 let index = usize::try_from(self.commit_number).unwrap();
                 let old_or_new = events.get(index).unwrap();
                 self.commit_number += 1;
-                return Some(self.converter.convert(old_or_new.clone()));
+                self.limit -= 1;
+                return Some(R::convert(old_or_new.clone()));
             }
         }
         None

@@ -1,7 +1,7 @@
 //! TODO: Doc
 
 use std::collections::HashSet;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -110,6 +110,10 @@ pub struct Empty<T: Event>(!, PhantomData<T>);
 
 impl<T: Event> Clone for Empty<T> {
     fn clone(&self) -> Self { unreachable!() }
+}
+
+impl<T: Event> Debug for Empty<T> {
+    fn fmt(&self, _: &mut Formatter) -> std::fmt::Result { unreachable!() }
 }
 
 impl<T: Event> Revision for Empty<T> {

@@ -65,7 +65,7 @@ fn fiddle() {
         stream.commit(&e2).await.expect("wtf?");
         stream.commit(&e3).await.expect("wtf?");
 
-        let mut it = stream.read(1, read::NewRevision).await.expect("wtf?");
+        let mut it = stream.read(read::All).await.expect("wtf?");
         while let Some(event) = it.next().await {
             println!("read {:?}", event);
         }
@@ -95,8 +95,10 @@ fn fiddle() {
 
         let f1 = async {
             let stream = store.lock().unwrap().stream(id.clone());
-            let mut it =
-                stream.subscribe(1, read::NewRevision).await.expect("wtf?");
+            let mut it = stream
+                .subscribe(read::Options { start_from: 1, limit: None })
+                .await
+                .expect("wtf?");
             while let Some(event) = it.next().await {
                 println!("subscriber read {:?}", event);
                 if let WatchedEpisode { episode, season: _ } = event {
@@ -152,8 +154,10 @@ fn fiddle() {
     spawner
         .spawn(async move {
             let stream = store2.lock().unwrap().stream(id2);
-            let mut it =
-                stream.subscribe(1, read::NewRevision).await.expect("wtf?");
+            let mut it = stream
+                .subscribe(read::Options { start_from: 1, limit: None })
+                .await
+                .expect("wtf?");
             while let Some(event) = it.next().await {
                 println!("subscriber read {:?}", event);
                 if let WatchedEpisode { episode, season: _ } = event {
