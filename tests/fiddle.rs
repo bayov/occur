@@ -4,11 +4,10 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
-use futures::join;
 use futures::task::SpawnExt as _;
-use occur::store::stream::Subscription as _;
-use occur::store::{read, Commit as _, Read as _, Store as _, Stream as _};
-use occur::{revision, store, AsyncIterator as _, Revision};
+use futures::{join, StreamExt};
+use occur::store::{read, Commit as _, Read as _, Store as _};
+use occur::{revision, store, Revision};
 use uuid::Uuid;
 
 use crate::TvShowTrackEvent::{Created, WatchedEpisode};
@@ -64,7 +63,7 @@ fn fiddle() {
         stream.commit(&e2).await.expect("wtf?");
         stream.commit(&e3).await.expect("wtf?");
 
-        let mut it = stream.read_all().await.expect("wtf?");
+        let mut it = stream.read_with_limit(2).await.expect("wtf?");
         while let Some(event) = it.next().await {
             println!("read {:?}", event);
         }
@@ -72,7 +71,7 @@ fn fiddle() {
 
     futures::executor::block_on(t.unwrap());
 
-    println!("\n----------------------- [ ThreadPool subscribe test ]");
+    println!("\n----------------------- [ ThreadPool read test ]");
 
     let id = TvShowTrackId(Uuid::now_v7());
     let e0 = Created { tv_show_name: "Elementary".to_owned() };
@@ -95,16 +94,11 @@ fn fiddle() {
         let f1 = async {
             let stream = store.lock().unwrap().stream(id.clone());
             let mut it = stream
-                .subscribe(read::Options { start_from: 1, limit: None })
+                .read_unconverted(read::Options { start_from: 1, limit: None })
                 .await
                 .expect("wtf?");
-            while let Some(revision::OldOrNew::New(event)) = it.next().await {
+            while let Some(event) = it.next().await {
                 println!("subscriber read {:?}", event);
-                if let WatchedEpisode { episode, season: _ } = event {
-                    if episode == 3 {
-                        break;
-                    }
-                }
             }
         };
 
@@ -119,7 +113,7 @@ fn fiddle() {
 
     futures::executor::block_on(t.unwrap());
 
-    println!("\n----------------------- [ LocalPool subscribe test ]");
+    println!("\n----------------------- [ LocalPool read test ]");
 
     let id = TvShowTrackId(Uuid::now_v7());
     let e0 = Created { tv_show_name: "Elementary".to_owned() };
@@ -154,7 +148,7 @@ fn fiddle() {
         .spawn(async move {
             let stream = store2.lock().unwrap().stream(id2);
             let mut it = stream
-                .subscribe(read::Options { start_from: 1, limit: None })
+                .read_unconverted(read::Options { start_from: 1, limit: None })
                 .await
                 .expect("wtf?");
             while let Some(revision::OldOrNew::New(event)) = it.next().await {

@@ -48,20 +48,14 @@ impl<T: Event> Request<T> for &revision::OldOrNew<T> {
 ///
 /// This is the write side of an event stream. See [`store::Read`] for the
 /// read side.
-pub trait Commit<T: Event>: Send {
+pub trait Commit: Send {
+    type Event: Event;
+
     /// Commits an event to the stream.
     ///
     /// Returns the commit number of the event.
     fn commit(
         &mut self,
-        request: impl Request<T>,
+        request: impl Request<Self::Event>,
     ) -> impl Future<Output = store::Result<Number>> + Send;
 }
-
-// pub trait CommittedEvent {
-//     type Event: Event;
-//
-//     fn event(&self) -> &Self::Event;
-//     fn take_event(self) -> Self::Event;
-//     fn commit_number(&self) -> Number;
-// }
