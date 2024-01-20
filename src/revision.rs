@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
 use crate::Event;
@@ -11,7 +11,7 @@ use crate::Event;
 ///
 /// Documentation for this trait assumes it is implemented for an enum type,
 /// and that each enum variant is assigned a unique revision value.
-pub trait Revision: Clone + Send + Sync + 'static {
+pub trait Revision: Clone + Eq + Hash + Debug + Send + Sync + 'static {
     /// Used as the revision value that uniquely distinguishes enum variants.
     ///
     /// TODO:
@@ -34,8 +34,8 @@ pub trait Revision: Clone + Send + Sync + 'static {
 
 /// Holds either a new event or an old revision of one.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum OldOrNew<T: Event, Old = <T as Event>::OldRevision> {
-    Old(Old),
+pub enum OldOrNew<T: Event> {
+    Old(<T as Event>::OldRevision),
     New(T),
 }
 
@@ -95,7 +95,7 @@ pub trait Convert: Revision {
     /// Converts this instances as many times as needed until it becomes a new
     /// variant type.
     fn convert_until_new(self) -> Self::Event {
-        match Self::convert(self) {
+        match self.convert() {
             OldOrNew::Old(old) => old.convert_until_new(),
             OldOrNew::New(new) => new,
         }
@@ -110,6 +110,16 @@ pub struct Empty<T: Event>(!, PhantomData<T>);
 
 impl<T: Event> Clone for Empty<T> {
     fn clone(&self) -> Self { unreachable!() }
+}
+
+impl<T: Event> PartialEq for Empty<T> {
+    fn eq(&self, _other: &Self) -> bool { unreachable!() }
+}
+
+impl<T: Event> Eq for Empty<T> {}
+
+impl<T: Event> Hash for Empty<T> {
+    fn hash<H: Hasher>(&self, _state: &mut H) { unreachable!() }
 }
 
 impl<T: Event> Debug for Empty<T> {

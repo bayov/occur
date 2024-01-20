@@ -4,10 +4,9 @@ use std::sync::Arc;
 
 use futures_locks::RwLock;
 
-use crate::store::read::AsyncIterator;
 use crate::store::stream::Subscription;
 use crate::store::{commit, read, Result};
-use crate::{revision, store, Event};
+use crate::{revision, store, AsyncIterator, Event, OldOrNewEventIterator};
 
 #[derive(Default)]
 pub struct Store<T: Event> {
@@ -75,71 +74,76 @@ impl<T: Event> store::Commit<T> for Stream<T> {
     }
 }
 
-#[rustfmt::skip]
 #[allow(clippy::manual_async_fn)]
 impl<T: Event> store::Read<T> for Stream<T> {
-    fn read<R>(
+    async fn read_unconverted(
         &self,
-        request: impl read::Request<T, Result=R>,
-    ) -> impl Future<Output = Result<impl AsyncIterator<Item = R>>> + Send {
-        async move {
-            Ok(EventIterator::new(Arc::clone(&self.events), &request))
-        }
+        options: read::Options,
+    ) -> Result<impl OldOrNewEventIterator<T>> {
+        Ok(InmemIter::new(Arc::clone(&self.events), options))
     }
 }
 
 #[allow(clippy::manual_async_fn)]
 impl<T: Event> store::Stream<T> for Stream<T> {
-    fn subscribe<R>(
+    async fn subscribe(
         &self,
-        request: impl read::Request<T, Result = R>,
-    ) -> impl Future<Output = Result<impl Subscription<Item = R>>> + Send {
-        async move {
-            Ok(EventSubscription::new(
-                Arc::clone(&self.events),
-                &request,
-                self.receiver.clone(),
-            ))
-        }
+        options: read::Options,
+    ) -> Result<impl Subscription<Item = revision::OldOrNew<T>>> {
+        Ok(EventSubscription::new(
+            Arc::clone(&self.events),
+            options,
+            self.receiver.clone(),
+            NoConverter,
+        ))
     }
 }
 
-pub struct EventIterator<T, R>
-where
-    T: Event,
-    R: read::Request<T>,
-{
+pub trait Converter<T: Event>: Send {
+    type Result;
+    fn convert(event: revision::OldOrNew<T>) -> Self::Result;
+}
+
+struct ToNewConverter;
+
+impl<T: Event> Converter<T> for ToNewConverter {
+    type Result = T;
+    fn convert(event: revision::OldOrNew<T>) -> Self::Result { event.to_new() }
+}
+
+struct NoConverter;
+
+impl<T: Event> Converter<T> for NoConverter {
+    type Result = revision::OldOrNew<T>;
+    fn convert(event: revision::OldOrNew<T>) -> Self::Result { event }
+}
+
+#[allow(clippy::module_name_repetitions)]
+pub struct InmemIter<T: Event> {
     events: SmartVec<revision::OldOrNew<T>>,
     commit_number: commit::Number,
     limit: usize,
-    phantom: std::marker::PhantomData<R>,
 }
 
-impl<T, R> EventIterator<T, R>
-where
-    T: Event,
-    R: read::Request<T>,
-{
+impl<T: Event> InmemIter<T> {
     #[must_use]
-    fn new(events: SmartVec<revision::OldOrNew<T>>, request: &R) -> Self {
+    fn new(
+        events: SmartVec<revision::OldOrNew<T>>,
+        options: read::Options,
+    ) -> Self {
         Self {
             events,
-            commit_number: request.start_from(),
-            limit: request.limit().unwrap_or(usize::MAX),
-            phantom: std::marker::PhantomData,
+            commit_number: options.start_from,
+            limit: options.limit.unwrap_or(usize::MAX),
         }
     }
 }
 
 #[allow(clippy::future_not_send)]
-impl<T, R> AsyncIterator for EventIterator<T, R>
-where
-    T: Event,
-    R: read::Request<T>,
-{
-    type Item = R::Result;
+impl<T: Event> AsyncIterator for InmemIter<T> {
+    type Item = revision::OldOrNew<T>;
 
-    async fn next(&mut self) -> Option<R::Result> {
+    async fn next(&mut self) -> Option<revision::OldOrNew<T>> {
         if self.limit == 0 {
             return None;
         }
@@ -149,7 +153,7 @@ where
         old_or_new.map(|old_or_new| {
             self.commit_number += 1;
             self.limit -= 1;
-            R::convert(old_or_new.clone())
+            old_or_new.clone()
         })
     }
 }
@@ -157,7 +161,7 @@ where
 pub struct EventSubscription<T, R>
 where
     T: Event,
-    R: read::Request<T>,
+    R: Converter<T>,
 {
     events: SmartVec<revision::OldOrNew<T>>,
     commit_number: commit::Number,
@@ -169,18 +173,19 @@ where
 impl<T, R> EventSubscription<T, R>
 where
     T: Event,
-    R: read::Request<T>,
+    R: Converter<T>,
 {
     #[must_use]
     fn new(
         events: SmartVec<revision::OldOrNew<T>>,
-        request: &R,
+        options: read::Options,
         receiver: async_channel::Receiver<commit::Number>,
+        _converter: R,
     ) -> Self {
         Self {
             events,
-            commit_number: request.start_from(),
-            limit: request.limit().unwrap_or(usize::MAX),
+            commit_number: options.start_from,
+            limit: options.limit.unwrap_or(usize::MAX),
             receiver,
             phantom: std::marker::PhantomData,
         }
@@ -191,7 +196,7 @@ where
 impl<T, R> Subscription for EventSubscription<T, R>
 where
     T: Event,
-    R: read::Request<T>,
+    R: Converter<T>,
 {
     type Item = R::Result;
 

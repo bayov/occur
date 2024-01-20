@@ -14,9 +14,11 @@
 
 pub use entity::Entity;
 pub use event::Event;
+pub use iterator::{AsyncIterator, NewEventIterator, OldOrNewEventIterator};
 pub use revision::Revision;
 
 mod entity;
 mod event;
+mod iterator;
 pub mod revision;
 pub mod store;

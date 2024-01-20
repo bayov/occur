@@ -1,89 +1,45 @@
 use std::future::Future;
 
 use crate::store::{commit, Result};
-use crate::{revision, Event};
+use crate::{AsyncIterator, Event, OldOrNewEventIterator};
 
-pub trait Request<T: Event>: Send + 'static {
-    type Result;
-    fn start_from(&self) -> commit::Number;
-    fn limit(&self) -> Option<usize>;
-    fn convert(event: revision::OldOrNew<T>) -> Self::Result;
-}
-
-pub struct All;
-
-impl<T: Event> Request<T> for All {
-    type Result = T;
-    fn start_from(&self) -> commit::Number { 0 }
-    fn limit(&self) -> Option<usize> { None }
-    fn convert(rev: revision::OldOrNew<T>) -> Self::Result { rev.to_new() }
-}
-
-pub struct StartFrom(pub commit::Number);
-
-impl<T: Event> Request<T> for StartFrom {
-    type Result = T;
-    fn start_from(&self) -> commit::Number { self.0 }
-    fn limit(&self) -> Option<usize> { None }
-    fn convert(rev: revision::OldOrNew<T>) -> Self::Result { rev.to_new() }
-}
-
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub struct Options {
     pub start_from: commit::Number,
     pub limit: Option<usize>,
 }
 
-impl<T: Event> Request<T> for Options {
-    type Result = T;
-    fn start_from(&self) -> commit::Number { self.start_from }
-    fn limit(&self) -> Option<usize> { self.limit }
-    fn convert(rev: revision::OldOrNew<T>) -> Self::Result { rev.to_new() }
-}
-
-pub mod no_revision_convert {
-    use super::Request;
-    use crate::store::commit;
-    use crate::{revision, Event};
-
-    pub struct All;
-
-    impl<T: Event> Request<T> for All {
-        type Result = revision::OldOrNew<T>;
-        fn start_from(&self) -> commit::Number { 0 }
-        fn limit(&self) -> Option<usize> { None }
-        fn convert(rev: revision::OldOrNew<T>) -> Self::Result { rev }
-    }
-
-    pub struct StartFrom(pub commit::Number);
-
-    impl<T: Event> Request<T> for StartFrom {
-        type Result = revision::OldOrNew<T>;
-        fn start_from(&self) -> commit::Number { self.0 }
-        fn limit(&self) -> Option<usize> { None }
-        fn convert(rev: revision::OldOrNew<T>) -> Self::Result { rev }
-    }
-
-    pub struct Options {
-        pub start_from: commit::Number,
-        pub limit: Option<usize>,
-    }
-
-    impl<T: Event> Request<T> for Options {
-        type Result = revision::OldOrNew<T>;
-        fn start_from(&self) -> commit::Number { self.start_from }
-        fn limit(&self) -> Option<usize> { self.limit }
-        fn convert(rev: revision::OldOrNew<T>) -> Self::Result { rev }
-    }
-}
-
-pub trait AsyncIterator: Send {
-    type Item;
-    fn next(&mut self) -> impl Future<Output = Option<Self::Item>> + Send;
-}
-
 pub trait Read<T: Event>: Send {
-    fn read<R>(
+    fn read_unconverted(
         &self,
-        request: impl Request<T, Result = R>,
-    ) -> impl Future<Output = Result<impl AsyncIterator<Item = R>>> + Send;
+        options: Options,
+    ) -> impl Future<Output = Result<impl OldOrNewEventIterator<T>>> + Send;
+
+    fn read(
+        &self,
+        options: Options,
+    ) -> impl Future<Output = Result<impl AsyncIterator<Item = T>>> + Send {
+        let future = self.read_unconverted(options);
+        async { future.await.map(OldOrNewEventIterator::to_new) }
+    }
+
+    fn read_all(
+        &self,
+    ) -> impl Future<Output = Result<impl AsyncIterator<Item = T>>> + Send {
+        self.read(Options { start_from: 0, limit: None })
+    }
+
+    fn read_from(
+        &self,
+        start_from: commit::Number,
+    ) -> impl Future<Output = Result<impl AsyncIterator<Item = T>>> + Send {
+        self.read(Options { start_from, limit: None })
+    }
+
+    fn read_with_limit(
+        &self,
+        limit: usize,
+    ) -> impl Future<Output = Result<impl AsyncIterator<Item = T>>> + Send {
+        self.read(Options { start_from: 0, limit: Some(limit) })
+    }
 }

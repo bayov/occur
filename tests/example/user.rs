@@ -6,7 +6,7 @@ use uuid::Uuid;
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Display)]
 pub struct Id(pub Uuid);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Event {
     Created { name: String, is_admin: bool },
     Renamed { new_name: String },
@@ -112,7 +112,7 @@ pub mod old {
     use crate::example::user::Event;
 
     #[allow(non_camel_case_types)]
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Revision {
         Deactivated_V0,
     }

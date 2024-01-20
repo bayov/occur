@@ -6,10 +6,9 @@ use std::sync::{Arc, Mutex};
 
 use futures::join;
 use futures::task::SpawnExt as _;
-use occur::store::read::AsyncIterator as _;
 use occur::store::stream::Subscription as _;
 use occur::store::{read, Commit as _, Read as _, Store as _, Stream as _};
-use occur::{revision, store, Revision};
+use occur::{revision, store, AsyncIterator as _, Revision};
 use uuid::Uuid;
 
 use crate::TvShowTrackEvent::{Created, WatchedEpisode};
@@ -17,7 +16,7 @@ use crate::TvShowTrackEvent::{Created, WatchedEpisode};
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct TvShowTrackId(Uuid);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum TvShowTrackEvent {
     Created { tv_show_name: String },
     WatchedEpisode { season: u64, episode: u64 },
@@ -65,7 +64,7 @@ fn fiddle() {
         stream.commit(&e2).await.expect("wtf?");
         stream.commit(&e3).await.expect("wtf?");
 
-        let mut it = stream.read(read::All).await.expect("wtf?");
+        let mut it = stream.read_all().await.expect("wtf?");
         while let Some(event) = it.next().await {
             println!("read {:?}", event);
         }
@@ -99,7 +98,7 @@ fn fiddle() {
                 .subscribe(read::Options { start_from: 1, limit: None })
                 .await
                 .expect("wtf?");
-            while let Some(event) = it.next().await {
+            while let Some(revision::OldOrNew::New(event)) = it.next().await {
                 println!("subscriber read {:?}", event);
                 if let WatchedEpisode { episode, season: _ } = event {
                     if episode == 3 {
@@ -158,7 +157,7 @@ fn fiddle() {
                 .subscribe(read::Options { start_from: 1, limit: None })
                 .await
                 .expect("wtf?");
-            while let Some(event) = it.next().await {
+            while let Some(revision::OldOrNew::New(event)) = it.next().await {
                 println!("subscriber read {:?}", event);
                 if let WatchedEpisode { episode, season: _ } = event {
                     if episode == 3 {

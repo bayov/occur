@@ -53,7 +53,7 @@ fn available_and_supported_revisions() {
 #[test]
 #[should_panic]
 fn panics_when_revisions_intersect() {
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     enum SomeEvent {
         Foo,
         // has the same revision as SomeOldEvent::Foo_V1
@@ -76,7 +76,7 @@ fn panics_when_revisions_intersect() {
     }
 
     #[allow(non_camel_case_types)]
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     enum SomeOldEvent {
         Foo_V0,
         Foo_V1,
@@ -94,7 +94,7 @@ fn panics_when_revisions_intersect() {
 
     impl revision::Convert for SomeOldEvent {
         type Event = SomeEvent;
-        fn convert(self) -> revision::OldOrNew<Self::Event, Self> {
+        fn convert(self) -> revision::OldOrNew<Self::Event> {
             match self {
                 Self::Foo_V0 => revision::OldOrNew::Old(Self::Foo_V1),
                 Self::Foo_V1 => SomeEvent::Foo.into(),
