@@ -1,6 +1,7 @@
 use std::future::Future;
 
-use crate::{revision, store, Event};
+use crate::store::Result;
+use crate::{revision, Event};
 
 /// Sequence number of a committed event.
 ///
@@ -46,9 +47,10 @@ impl<T: Event> Request<T> for &revision::OldOrNew<T> {
 
 /// Represents an event stream to which events can be committed.
 ///
-/// This is the write side of an event stream. See [`store::Read`] for the
-/// read side.
+/// This is the write side of an event stream. See [`crate::store::Read`] for
+/// the read side.
 pub trait Commit: Send {
+    /// The type of events held within the stream.
     type Event: Event;
 
     /// Commits an event to the stream.
@@ -57,5 +59,5 @@ pub trait Commit: Send {
     fn commit(
         &mut self,
         request: impl Request<Self::Event>,
-    ) -> impl Future<Output = store::Result<Number>> + Send;
+    ) -> impl Future<Output = Result<Number>> + Send;
 }

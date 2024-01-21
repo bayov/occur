@@ -83,7 +83,7 @@ pub trait Convert: Revision {
     /// The newer type to which this type can be converted to.
     type Event: Event<Value = Self::Value>;
 
-    /// Converts this variant instance a newer one.
+    /// Converts this event variant to a newer one.
     ///
     /// Use [`Self::convert_until_new`] to convert an old variant as many times
     /// as needed to acquire an instance of [`Self::New`].

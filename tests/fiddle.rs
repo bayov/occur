@@ -63,7 +63,7 @@ fn fiddle() {
         stream.commit(&e2).await.expect("wtf?");
         stream.commit(&e3).await.expect("wtf?");
 
-        let mut it = stream.read_with_limit(2).await.expect("wtf?");
+        let mut it = stream.read_all().await.expect("wtf?");
         while let Some(event) = it.next().await {
             println!("read {:?}", event);
         }
@@ -94,7 +94,11 @@ fn fiddle() {
         let f1 = async {
             let stream = store.lock().unwrap().stream(id.clone());
             let mut it = stream
-                .read_unconverted(read::Options { start_from: 1, limit: None })
+                .read_unconverted(read::Options {
+                    position: read::Position::Commit(1),
+                    direction: read::Direction::Forward,
+                    limit: None,
+                })
                 .await
                 .expect("wtf?");
             while let Some(event) = it.next().await {
@@ -148,7 +152,11 @@ fn fiddle() {
         .spawn(async move {
             let stream = store2.lock().unwrap().stream(id2);
             let mut it = stream
-                .read_unconverted(read::Options { start_from: 1, limit: None })
+                .read_unconverted(read::Options {
+                    position: read::Position::End,
+                    direction: read::Direction::Backward,
+                    limit: None,
+                })
                 .await
                 .expect("wtf?");
             while let Some(revision::OldOrNew::New(event)) = it.next().await {

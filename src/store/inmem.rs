@@ -53,15 +53,15 @@ impl<T: Event> store::Commit for Stream<T> {
         let event = request.event().to_owned();
         let condition = request.condition();
         async move {
-            let mut guarded_events = self.events.write().await;
-            let commit_number = guarded_events.len().try_into().unwrap();
+            let mut events = self.events.write().await;
+            let commit_number = events.len().try_into().unwrap();
             match condition {
                 commit::Condition::None => {}
                 commit::Condition::Number(want_commit_number) => {
                     assert_eq!(commit_number, want_commit_number);
                 }
             }
-            guarded_events.push(event);
+            events.push(event);
             Ok(commit_number)
         }
     }
@@ -74,11 +74,21 @@ impl<T: Event> store::Read for Stream<T> {
         &self,
         options: read::Options,
     ) -> Result<impl futures::Stream<Item = revision::OldOrNew<T>>> {
-        let guarded_events = self.events.read().await;
-        let start = options.start_from as usize;
+        let events = self.events.read().await;
+        let start = match options.position {
+            read::Position::Start => 0,
+            read::Position::End => events.len(),
+            read::Position::Commit(number) => number as usize,
+        };
         let limit = options.limit.unwrap_or(usize::MAX);
-        let events: Vec<_> =
-            guarded_events.iter().skip(start).take(limit).cloned().collect();
+        let events: Vec<_> = match options.direction {
+            read::Direction::Forward => {
+                events[start..].iter().take(limit).cloned().collect()
+            }
+            read::Direction::Backward => {
+                events[0..start].iter().rev().take(limit).cloned().collect()
+            }
+        };
         Ok(futures::stream::iter(events))
     }
 }
