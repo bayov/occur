@@ -9,6 +9,7 @@
     trait_alias,
     never_type
 )]
+#![deny(unsafe_op_in_unsafe_fn)]
 #![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
 // #![warn(missing_docs)] -- TODO: uncomment when ready
 
