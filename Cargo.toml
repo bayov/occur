@@ -21,6 +21,9 @@ thiserror = "1.0.50"
 backtrace = []
 
 [dev-dependencies]
+color-eyre = { version = "0.6.2", default-features = false }
+ctor = "0.2.6"
+eyre = "0.6.11"
 grcov = "0.8.19"
 rstest = "0.18.2"
 uuid = { version = "1.6.1", features = ["v7"] }

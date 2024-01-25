@@ -18,6 +18,7 @@ pub use event::Event;
 pub use revision::Revision;
 
 mod entity;
+mod error;
 mod event;
 pub mod revision;
 pub mod store;

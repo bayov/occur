@@ -5,7 +5,8 @@ use std::sync::Arc;
 use futures::{self};
 use futures_locks::RwLock;
 
-use crate::store::{commit, read, Result};
+use crate::error::ErrorWithKind;
+use crate::store::{commit, read, Result as StoreResult};
 use crate::{revision, store, Event};
 
 #[derive(Default)]
@@ -43,22 +44,47 @@ impl<T: Event> Default for Stream<T> {
     fn default() -> Self { Self::new() }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("{kind}")]
+pub struct CommitError {
+    kind: commit::ErrorKind,
+    source: Option<std::num::TryFromIntError>,
+    backtrace: std::backtrace::Backtrace,
+}
+
+impl ErrorWithKind for CommitError {
+    type Kind = commit::ErrorKind;
+    fn kind(&self) -> Self::Kind { self.kind }
+}
+
 impl<T: Event> store::Commit for Stream<T> {
     type Event = T;
+    type Error = CommitError;
 
     fn commit(
         &mut self,
         request: impl commit::Request<T>,
-    ) -> impl Future<Output = Result<commit::Number>> + Send {
+    ) -> impl Future<Output = Result<commit::Number, Self::Error>> + Send {
         let event = request.event().to_owned();
         let condition = request.condition();
         async move {
             let mut events = self.events.write().await;
-            let commit_number = events.len().try_into().unwrap();
+            let commit_number =
+                u32::try_from(events.len()).map_err(|source| CommitError {
+                    kind: commit::ErrorKind::StreamFull,
+                    source: Some(source),
+                    backtrace: std::backtrace::Backtrace::capture(),
+                })?;
             match condition {
                 commit::Condition::None => {}
-                commit::Condition::Number(want_commit_number) => {
-                    assert_eq!(commit_number, want_commit_number);
+                commit::Condition::WantCommitNumber(want_commit_number) => {
+                    if commit_number != want_commit_number {
+                        return Err(CommitError {
+                            kind: commit::ErrorKind::ConditionNotMet,
+                            source: None,
+                            backtrace: std::backtrace::Backtrace::capture(),
+                        });
+                    }
                 }
             }
             events.push(event);
@@ -73,7 +99,7 @@ impl<T: Event> store::Read for Stream<T> {
     async fn read_unconverted(
         &self,
         options: read::Options,
-    ) -> Result<impl futures::Stream<Item = revision::OldOrNew<T>>> {
+    ) -> StoreResult<impl futures::Stream<Item = revision::OldOrNew<T>>> {
         let events = self.events.read().await;
         let start = match options.position {
             read::Position::Start => 0,

@@ -1,6 +1,8 @@
 use std::future::Future;
 
-use crate::store::Result;
+use derive_more::Display;
+
+use crate::error::ErrorWithKind;
 use crate::{revision, Event};
 
 /// Sequence number of a committed event.
@@ -11,17 +13,19 @@ pub type Number = u32;
 
 /// Specifies the condition for a commit request to succeed.
 pub enum Condition {
-    /// There are no conditions, events should be committed regardless of the
-    /// stream's state.
+    /// No conditions; a commit request is expected to always succeed.
     None,
 
-    /// The stream's latest commit number should be equal to the number
-    /// provided.
+    /// The commit request must result in the committed event number being
+    /// equal to the one provided.
     ///
     /// Used for committing events optimistically ([OCC]).
     ///
+    /// When committing many events at once, the commit number of the first
+    /// event is used as the commit number.
+    ///
     /// [OCC]: https://en.wikipedia.org/wiki/Optimistic_concurrency_control
-    Number(Number),
+    WantCommitNumber(Number),
 }
 
 /// A request to commit an event to a stream.
@@ -45,6 +49,20 @@ impl<T: Event> Request<T> for &revision::OldOrNew<T> {
     fn condition(&self) -> Condition { Condition::None }
 }
 
+/// Errors that might occur when committing an event to a stream.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Display)]
+pub enum ErrorKind {
+    /// The stream is full, and cannot accept anymore events.
+    #[display("stream full")]
+    StreamFull,
+    /// The condition specified by the request was not met.
+    #[display("condition not met")]
+    ConditionNotMet,
+    /// An unexpected error occurred.
+    #[display("unexpected error")]
+    Other,
+}
+
 /// Represents an event stream to which events can be committed.
 ///
 /// This is the write side of an event stream. See [`crate::store::Read`] for
@@ -52,6 +70,7 @@ impl<T: Event> Request<T> for &revision::OldOrNew<T> {
 pub trait Commit: Send {
     /// The type of events held within the stream.
     type Event: Event;
+    type Error: ErrorWithKind<Kind = ErrorKind>;
 
     /// Commits an event to the stream.
     ///
@@ -59,5 +78,5 @@ pub trait Commit: Send {
     fn commit(
         &mut self,
         request: impl Request<Self::Event>,
-    ) -> impl Future<Output = Result<Number>> + Send;
+    ) -> impl Future<Output = Result<Number, Self::Error>> + Send;
 }

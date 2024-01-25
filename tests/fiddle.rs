@@ -12,6 +12,8 @@ use uuid::Uuid;
 
 use crate::TvShowTrackEvent::{Created, WatchedEpisode};
 
+mod init;
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct TvShowTrackId(Uuid);
 
@@ -139,6 +141,7 @@ fn fiddle() {
         .spawn(async move {
             let mut stream = store2.lock().unwrap().stream(id2);
             stream.commit(&e0).await.expect("wtf?");
+            stream.commit(&e1).await.expect("wtf?");
             stream.commit(&e1).await.expect("wtf?");
         })
         .expect("wtf?");
