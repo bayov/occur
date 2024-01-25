@@ -63,7 +63,7 @@ impl<T: Event> store::Commit for Stream<T> {
 
     fn commit(
         &mut self,
-        request: impl commit::Request<T>,
+        request: &dyn commit::Request<T>,
     ) -> impl Future<Output = Result<commit::Number, Self::Error>> + Send {
         let event = request.event().to_owned();
         let condition = request.condition();

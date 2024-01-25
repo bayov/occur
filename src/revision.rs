@@ -62,7 +62,7 @@ impl<T: Event> OldOrNew<T> {
 }
 
 /// Holds either a reference to a new event or an old revision of one.
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum OldOrNewRef<'a, T: Event> {
     Old(&'a T::OldRevision),
     New(&'a T),

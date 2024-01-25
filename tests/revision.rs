@@ -9,7 +9,6 @@ use occur::{revision, Event, Revision};
 use crate::example::user;
 
 mod example;
-mod init;
 
 #[test]
 fn convert_old_event() {

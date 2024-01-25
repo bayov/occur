@@ -6,13 +6,11 @@ use std::sync::{Arc, Mutex};
 
 use futures::task::SpawnExt as _;
 use futures::{join, StreamExt};
-use occur::store::{read, Commit as _, Read as _, Store as _};
+use occur::store::{commit, read, Commit as _, Read as _, Store as _};
 use occur::{revision, store, Revision};
 use uuid::Uuid;
 
 use crate::TvShowTrackEvent::{Created, WatchedEpisode};
-
-mod init;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct TvShowTrackId(Uuid);
@@ -45,6 +43,8 @@ impl Revision for TvShowTrackEvent {
 
 #[test]
 fn fiddle() {
+    color_backtrace::install();
+
     println!("\n----------------------- [ ThreadPool read test ]");
 
     let id = TvShowTrackId(Uuid::now_v7());
@@ -61,7 +61,10 @@ fn fiddle() {
     let t = pool.spawn_with_handle(async move {
         let mut stream = store.stream(id);
         stream.commit(&e0).await.expect("wtf?");
-        stream.commit(&e1).await.expect("wtf?");
+        stream
+            .commit(&commit::Condition::WantCommitNumber(1).with_event(&e1))
+            .await
+            .unwrap();
         stream.commit(&e2).await.expect("wtf?");
         stream.commit(&e3).await.expect("wtf?");
 

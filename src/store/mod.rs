@@ -6,7 +6,6 @@ pub use read::Read;
 use crate::Event;
 
 pub mod commit;
-pub mod error;
 pub mod inmem;
 pub mod read;
 
