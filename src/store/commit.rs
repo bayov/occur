@@ -59,6 +59,10 @@ pub enum ErrorKind {
     #[display("condition not met")]
     ConditionNotMet,
     /// An unexpected error occurred.
+    ///
+    /// Can be used by implementors of [`Commit`] to denote
+    /// implementation-specific errors that do not match any other
+    /// [`ErrorKind`].
     #[display("unexpected error")]
     Other,
 }
