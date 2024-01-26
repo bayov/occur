@@ -157,7 +157,7 @@ fn fiddle() {
             let stream = store2.lock().unwrap().stream(id2);
             let mut it = stream
                 .read_unconverted(read::Options {
-                    position: read::Position::End,
+                    position: read::Position::Last,
                     direction: read::Direction::Backward,
                     limit: None,
                 })

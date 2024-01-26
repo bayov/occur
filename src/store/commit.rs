@@ -35,9 +35,11 @@ pub enum ErrorKind {
     /// The stream is full, and cannot accept anymore events.
     #[display("stream full")]
     StreamFull,
+
     /// The specified commit condition was not met.
     #[display("condition not met")]
     ConditionNotMet,
+
     /// An unexpected error occurred.
     ///
     /// Can be used by implementors of [`Commit`] to denote

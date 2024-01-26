@@ -6,7 +6,7 @@ use futures::{self};
 use futures_locks::RwLock;
 
 use crate::error::ErrorWithKind;
-use crate::store::{commit, read, Result as StoreResult};
+use crate::store::{commit, read};
 use crate::{revision, store, Event};
 
 #[derive(Default)]
@@ -96,19 +96,40 @@ impl<T: Event> store::Commit for Stream<T> {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("{kind}")]
+pub struct ReadError {
+    kind: read::ErrorKind,
+    backtrace: std::backtrace::Backtrace,
+}
+
+impl ErrorWithKind for ReadError {
+    type Kind = read::ErrorKind;
+    fn kind(&self) -> Self::Kind { self.kind }
+}
+
+type ReadResult<T> = Result<T, ReadError>;
+
 impl<T: Event> store::Read for Stream<T> {
     type Event = T;
+    type Error = ReadError;
 
     async fn read_unconverted(
         &self,
         options: read::Options,
-    ) -> StoreResult<impl futures::Stream<Item = revision::OldOrNew<T>>> {
+    ) -> ReadResult<impl futures::Stream<Item = revision::OldOrNew<T>>> {
         let events = self.events.read().await;
         let start = match options.position {
-            read::Position::Start => 0,
-            read::Position::End => events.len(),
+            read::Position::First => 0,
+            read::Position::Last => events.len() - 1,
             read::Position::Commit(number) => number as usize,
         };
+        if start >= events.len() {
+            return Err(ReadError {
+                kind: read::ErrorKind::CommitNotFound,
+                backtrace: std::backtrace::Backtrace::capture(),
+            });
+        }
         let limit = options.limit.unwrap_or(usize::MAX);
         let events: Vec<_> = match options.direction {
             read::Direction::Forward => {

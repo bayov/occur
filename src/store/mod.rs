@@ -1,5 +1,3 @@
-use std::error::Error;
-
 pub use commit::Commit;
 pub use read::Read;
 
@@ -8,8 +6,6 @@ use crate::Event;
 pub mod commit;
 pub mod inmem;
 pub mod read;
-
-pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 pub trait Store {
     type Event: Event;
