@@ -57,38 +57,41 @@ impl ErrorWithKind for CommitError {
     fn kind(&self) -> Self::Kind { self.kind }
 }
 
+type CommitResult<T> = Result<T, CommitError>;
+
 impl<T: Event> store::Commit for Stream<T> {
     type Event = T;
     type Error = CommitError;
 
-    fn commit(
+    fn commit_old_or_new(
         &mut self,
-        request: &dyn commit::Request<T>,
-    ) -> impl Future<Output = Result<commit::Number, Self::Error>> + Send {
-        let event = request.event().to_owned();
-        let condition = request.condition();
+        event: revision::OldOrNewRef<'_, Self::Event>,
+        condition: commit::Condition,
+    ) -> impl Future<Output = CommitResult<commit::Number>> + Send {
+        let event = event.to_owned();
         async move {
             let mut events = self.events.write().await;
-            let commit_number =
-                u32::try_from(events.len()).map_err(|source| CommitError {
-                    kind: commit::ErrorKind::StreamFull,
-                    source: Some(source),
-                    backtrace: std::backtrace::Backtrace::capture(),
-                })?;
-            match condition {
-                commit::Condition::None => {}
-                commit::Condition::WantCommitNumber(want_commit_number) => {
-                    if commit_number != want_commit_number {
-                        return Err(CommitError {
-                            kind: commit::ErrorKind::ConditionNotMet,
-                            source: None,
-                            backtrace: std::backtrace::Backtrace::capture(),
-                        });
-                    }
-                }
-            }
+            let commit_number = next_commit_number(events.len(), condition)?;
             events.push(event);
             Ok(commit_number)
+        }
+    }
+
+    fn commit_many<'a>(
+        &mut self,
+        events: impl IntoIterator<Item = &'a Self::Event>,
+        condition: commit::Condition,
+    ) -> impl Future<Output = CommitResult<Option<commit::Number>>> + Send {
+        let events_to_commit: Vec<_> =
+            events.into_iter().cloned().map(revision::OldOrNew::New).collect();
+        async move {
+            if events_to_commit.is_empty() {
+                return Ok(None);
+            }
+            let mut events = self.events.write().await;
+            let commit_number = next_commit_number(events.len(), condition)?;
+            events.extend(events_to_commit);
+            Ok(Some(commit_number))
         }
     }
 }
@@ -117,4 +120,29 @@ impl<T: Event> store::Read for Stream<T> {
         };
         Ok(futures::stream::iter(events))
     }
+}
+
+fn next_commit_number(
+    n_events: usize,
+    condition: commit::Condition,
+) -> CommitResult<commit::Number> {
+    let commit_number =
+        u32::try_from(n_events).map_err(|source| CommitError {
+            kind: commit::ErrorKind::StreamFull,
+            source: Some(source),
+            backtrace: std::backtrace::Backtrace::capture(),
+        })?;
+    match condition {
+        commit::Condition::None => {}
+        commit::Condition::AssignCommitNumber(assign_commit_number) => {
+            if commit_number != assign_commit_number {
+                return Err(CommitError {
+                    kind: commit::ErrorKind::ConditionNotMet,
+                    source: None,
+                    backtrace: std::backtrace::Backtrace::capture(),
+                });
+            }
+        }
+    }
+    Ok(commit_number)
 }

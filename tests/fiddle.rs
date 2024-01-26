@@ -60,13 +60,10 @@ fn fiddle() {
 
     let t = pool.spawn_with_handle(async move {
         let mut stream = store.stream(id);
-        stream.commit(&e0).await.expect("wtf?");
-        stream
-            .commit(&commit::Condition::WantCommitNumber(1).with_event(&e1))
-            .await
-            .unwrap();
-        stream.commit(&e2).await.expect("wtf?");
-        stream.commit(&e3).await.expect("wtf?");
+        stream.commit_with_number(&e0, 0).await.expect("wtf?");
+        stream.commit_unconditionally(&e1).await.unwrap();
+        stream.commit_with_number(&e2, 2).await.expect("wtf?");
+        stream.commit_unconditionally(&e3).await.expect("wtf?");
 
         let mut it = stream.read_all().await.expect("wtf?");
         while let Some(event) = it.next().await {
@@ -92,8 +89,10 @@ fn fiddle() {
     let t = pool.spawn_with_handle(async move {
         {
             let mut stream = store.lock().unwrap().stream(id.clone());
-            stream.commit(&e0).await.expect("wtf?");
-            stream.commit(&e1).await.expect("wtf?");
+            stream
+                .commit_many([&e0, &e1], commit::Condition::None)
+                .await
+                .unwrap();
         }
 
         let f1 = async {
@@ -113,8 +112,8 @@ fn fiddle() {
 
         let f2 = async {
             let mut stream = store.lock().unwrap().stream(id.clone());
-            stream.commit(&e2).await.expect("wtf?");
-            stream.commit(&e3).await.expect("wtf?");
+            stream.commit_unconditionally(&e2).await.expect("wtf?");
+            stream.commit_unconditionally(&e3).await.expect("wtf?");
         };
 
         join!(f1, f2);
@@ -143,9 +142,8 @@ fn fiddle() {
     spawner
         .spawn(async move {
             let mut stream = store2.lock().unwrap().stream(id2);
-            stream.commit(&e0).await.expect("wtf?");
-            stream.commit(&e1).await.expect("wtf?");
-            stream.commit(&e1).await.expect("wtf?");
+            stream.commit_unconditionally(&e0).await.expect("wtf?");
+            stream.commit_unconditionally(&e1).await.expect("wtf?");
         })
         .expect("wtf?");
 
@@ -182,8 +180,8 @@ fn fiddle() {
     spawner
         .spawn(async move {
             let mut stream = store2.lock().unwrap().stream(id2);
-            stream.commit(&e2).await.expect("wtf?");
-            stream.commit(&e3).await.expect("wtf?");
+            stream.commit_unconditionally(&e2).await.expect("wtf?");
+            stream.commit_unconditionally(&e3).await.expect("wtf?");
         })
         .expect("wtf?");
 
