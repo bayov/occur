@@ -7,41 +7,73 @@ use futures_locks::RwLock;
 
 use crate::error::ErrorWithKind;
 use crate::store::{commit, read};
-use crate::{revision, store, Event};
-
-#[derive(Default)]
-pub struct Store<T: Event> {
-    events_by_stream_id: HashMap<T::StreamId, Stream<T>>,
-}
-
-impl<T: Event> Store<T> {
-    #[must_use]
-    pub fn new() -> Self { Self { events_by_stream_id: HashMap::default() } }
-}
-
-impl<T: Event> store::Store for Store<T> {
-    type Event = T;
-    type EventStream = Stream<T>;
-
-    fn stream(&mut self, id: T::StreamId) -> Self::EventStream {
-        self.events_by_stream_id.entry(id).or_default().clone()
-    }
-}
+use crate::{revision, store, Deserializer, Event, Serializer};
 
 type SmartVec<T> = Arc<RwLock<Vec<T>>>;
 
-#[derive(Clone)]
-pub struct Stream<T: Event> {
-    events: SmartVec<revision::OldOrNew<T>>,
+#[derive(Default)]
+pub struct Store<T, S, D>
+where
+    T: Event,
+    S: Serializer<Event = T>,
+    D: Deserializer<Event = T, SerializedEvent = S::SerializedEvent>,
+    S::SerializedEvent: Clone + Send + Sync,
+{
+    events_by_stream_id: HashMap<T::StreamId, SmartVec<S::SerializedEvent>>,
+    serializer: S,
+    deserializer: D,
 }
 
-impl<T: Event> Stream<T> {
+impl<T, S, D> Store<T, S, D>
+where
+    T: Event,
+    S: Serializer<Event = T>,
+    D: Deserializer<Event = T, SerializedEvent = S::SerializedEvent>,
+    S::SerializedEvent: Clone + Send + Sync,
+{
     #[must_use]
-    fn new() -> Self { Self { events: Arc::default() } }
+    pub fn new(serializer: S, deserializer: D) -> Self {
+        Self { events_by_stream_id: HashMap::new(), serializer, deserializer }
+    }
 }
 
-impl<T: Event> Default for Stream<T> {
-    fn default() -> Self { Self::new() }
+impl<T, S, D> store::Store for Store<T, S, D>
+where
+    T: Event,
+    S: Serializer<Event = T>,
+    D: Deserializer<Event = T, SerializedEvent = S::SerializedEvent>,
+    S::SerializedEvent: Clone + Send + Sync,
+{
+    type Event = T;
+    type WriteStream = WriteStream<T, S>;
+    type ReadStream = ReadStream<T, D>;
+
+    fn write_stream(&mut self, id: T::StreamId) -> Self::WriteStream {
+        let events = self.events_by_stream_id.entry(id).or_default();
+        WriteStream {
+            events: events.clone(),
+            serializer: self.serializer.clone(),
+        }
+    }
+
+    fn read_stream(&mut self, id: T::StreamId) -> Self::ReadStream {
+        let events = self.events_by_stream_id.entry(id).or_default();
+        ReadStream {
+            events: events.clone(),
+            deserializer: self.deserializer.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct WriteStream<T, S>
+where
+    T: Event,
+    S: Serializer<Event = T>,
+    S::SerializedEvent: Clone + Send + Sync,
+{
+    events: SmartVec<S::SerializedEvent>,
+    serializer: S,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -59,7 +91,12 @@ impl ErrorWithKind for CommitError {
 
 type CommitResult<T> = Result<T, CommitError>;
 
-impl<T: Event> store::Commit for Stream<T> {
+impl<T, S> store::Commit for WriteStream<T, S>
+where
+    T: Event,
+    S: Serializer<Event = T>,
+    S::SerializedEvent: Clone + Send + Sync,
+{
     type Event = T;
     type Error = CommitError;
 
@@ -68,11 +105,11 @@ impl<T: Event> store::Commit for Stream<T> {
         event: revision::OldOrNewRef<'_, Self::Event>,
         condition: commit::Condition,
     ) -> impl Future<Output = CommitResult<commit::Number>> + Send {
-        let event = event.to_owned();
+        let serialized_event = self.serializer.serialize(event);
         async move {
             let mut events = self.events.write().await;
             let commit_number = next_commit_number(events.len(), condition)?;
-            events.push(event);
+            events.push(serialized_event);
             Ok(commit_number)
         }
     }
@@ -82,8 +119,11 @@ impl<T: Event> store::Commit for Stream<T> {
         events: impl IntoIterator<Item = &'a Self::Event>,
         condition: commit::Condition,
     ) -> impl Future<Output = CommitResult<Option<commit::Number>>> + Send {
-        let events_to_commit: Vec<_> =
-            events.into_iter().cloned().map(revision::OldOrNew::New).collect();
+        let events_to_commit: Vec<_> = events
+            .into_iter()
+            .map(revision::OldOrNewRef::New)
+            .map(|event| self.serializer.serialize(event))
+            .collect();
         async move {
             if events_to_commit.is_empty() {
                 return Ok(None);
@@ -94,6 +134,17 @@ impl<T: Event> store::Commit for Stream<T> {
             Ok(Some(commit_number))
         }
     }
+}
+
+#[derive(Clone)]
+pub struct ReadStream<T, D>
+where
+    T: Event,
+    D: Deserializer<Event = T>,
+    D::SerializedEvent: Clone + Send + Sync,
+{
+    events: SmartVec<D::SerializedEvent>,
+    deserializer: D,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -110,12 +161,17 @@ impl ErrorWithKind for ReadError {
 
 type ReadResult<T> = Result<T, ReadError>;
 
-impl<T: Event> store::Read for Stream<T> {
+impl<T, D> store::Read for ReadStream<T, D>
+where
+    T: Event,
+    D: Deserializer<Event = T>,
+    D::SerializedEvent: Clone + Send + Sync,
+{
     type Event = T;
     type Error = ReadError;
 
     async fn read_unconverted(
-        &self,
+        &mut self,
         options: read::Options,
     ) -> ReadResult<impl futures::Stream<Item = revision::OldOrNew<T>>> {
         let events = self.events.read().await;
@@ -131,15 +187,30 @@ impl<T: Event> store::Read for Stream<T> {
             });
         }
         let limit = options.limit.unwrap_or(usize::MAX);
-        let events: Vec<_> = match options.direction {
-            read::Direction::Forward => {
-                events[start..].iter().take(limit).cloned().collect()
-            }
-            read::Direction::Backward => {
-                events[0..start].iter().rev().take(limit).cloned().collect()
-            }
-        };
-        Ok(futures::stream::iter(events))
+        let deserializer = &self.deserializer;
+        let mut deserialized_events = Vec::new();
+        {
+            match options.direction {
+                read::Direction::Forward => {
+                    events[start..]
+                        .iter()
+                        .take(limit)
+                        .cloned()
+                        .map(|event| deserializer.deserialize(event))
+                        .collect_into(&mut deserialized_events);
+                }
+                read::Direction::Backward => {
+                    events[0..start]
+                        .iter()
+                        .rev()
+                        .take(limit)
+                        .cloned()
+                        .map(|event| deserializer.deserialize(event))
+                        .collect_into(&mut deserialized_events);
+                }
+            };
+        }
+        Ok(futures::stream::iter(deserialized_events))
     }
 }
 

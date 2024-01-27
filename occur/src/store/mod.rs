@@ -9,10 +9,16 @@ pub mod read;
 
 pub trait Store {
     type Event: Event;
-    type EventStream: Commit<Event = Self::Event> + Read<Event = Self::Event>;
+    type WriteStream: Commit<Event = Self::Event>;
+    type ReadStream: Read<Event = Self::Event>;
 
-    fn stream(
+    fn write_stream(
         &mut self,
         id: <Self::Event as Event>::StreamId,
-    ) -> Self::EventStream;
+    ) -> Self::WriteStream;
+
+    fn read_stream(
+        &mut self,
+        id: <Self::Event as Event>::StreamId,
+    ) -> Self::ReadStream;
 }

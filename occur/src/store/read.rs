@@ -88,7 +88,7 @@ pub trait Read: Send {
     /// Use [`Self::read`] to automatically convert the read events (using
     /// [`revision::OldOrNew::to_new`]).
     fn read_unconverted(
-        &self,
+        &mut self,
         options: Options,
     ) -> impl Future<
         Output = Result<
@@ -100,7 +100,7 @@ pub trait Read: Send {
     #[rustfmt::skip]
     /// Read events from the stream based on the provided options.
     fn read(
-        &self,
+        &mut self,
         options: Options,
     ) -> impl Future<
         Output=Result<
@@ -115,7 +115,7 @@ pub trait Read: Send {
     #[rustfmt::skip]
     /// Read all events from the stream, from first to last.
     fn read_all(
-        &self,
+        &mut self,
     ) -> impl Future<
         Output=Result<
             impl Stream<Item=Self::Event>,

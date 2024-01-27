@@ -51,19 +51,26 @@ fn fiddle() {
     let e2 = WatchedEpisode { season: 1, episode: 2 };
     let e3 = WatchedEpisode { season: 1, episode: 3 };
 
-    let mut store = store::inmem::Store::<TvShowTrackEvent>::new();
+    let create_store = || {
+        let serializer = occur::serializer::Noop::new();
+        let deserializer = occur::serializer::Noop::new();
+        store::inmem::Store::new(serializer, deserializer)
+    };
+
+    let mut store = create_store();
 
     // remove "thread-pool" feature from futures if not using thread-pool
     let pool = futures::executor::ThreadPool::new().unwrap();
 
     let t = pool.spawn_with_handle(async move {
-        let mut stream = store.stream(id);
-        stream.commit_with_number(&e0, 0).await.expect("wtf?");
-        stream.commit_unconditionally(&e1).await.unwrap();
-        stream.commit_with_number(&e2, 2).await.expect("wtf?");
-        stream.commit_unconditionally(&e3).await.expect("wtf?");
+        let mut ws = store.write_stream(id.clone());
+        ws.commit_with_number(&e0, 0).await.expect("wtf?");
+        ws.commit_unconditionally(&e1).await.unwrap();
+        ws.commit_with_number(&e2, 2).await.expect("wtf?");
+        ws.commit_unconditionally(&e3).await.expect("wtf?");
 
-        let mut it = stream.read_all().await.expect("wtf?");
+        let mut rs = store.read_stream(id);
+        let mut it = rs.read_all().await.expect("wtf?");
         while let Some(event) = it.next().await {
             println!("read {:?}", event);
         }
@@ -79,14 +86,14 @@ fn fiddle() {
     let e2 = WatchedEpisode { season: 1, episode: 2 };
     let e3 = WatchedEpisode { season: 1, episode: 3 };
 
-    let store = Mutex::new(store::inmem::Store::<TvShowTrackEvent>::new());
+    let store = Mutex::new(create_store());
 
     // remove "thread-pool" feature from futures if not using thread-pool
     let pool = futures::executor::ThreadPool::new().unwrap();
 
     let t = pool.spawn_with_handle(async move {
         {
-            let mut stream = store.lock().unwrap().stream(id.clone());
+            let mut stream = store.lock().unwrap().write_stream(id.clone());
             stream
                 .commit_many([&e0, &e1], commit::Condition::None)
                 .await
@@ -94,7 +101,7 @@ fn fiddle() {
         }
 
         let f1 = async {
-            let stream = store.lock().unwrap().stream(id.clone());
+            let mut stream = store.lock().unwrap().read_stream(id.clone());
             let mut it = stream
                 .read_unconverted(read::Options {
                     position: read::Position::Commit(1),
@@ -109,7 +116,7 @@ fn fiddle() {
         };
 
         let f2 = async {
-            let mut stream = store.lock().unwrap().stream(id.clone());
+            let mut stream = store.lock().unwrap().write_stream(id.clone());
             stream.commit_unconditionally(&e2).await.expect("wtf?");
             stream.commit_unconditionally(&e3).await.expect("wtf?");
         };
@@ -127,8 +134,7 @@ fn fiddle() {
     let e2 = WatchedEpisode { season: 1, episode: 2 };
     let e3 = WatchedEpisode { season: 1, episode: 3 };
 
-    let store =
-        Arc::new(Mutex::new(store::inmem::Store::<TvShowTrackEvent>::new()));
+    let store = Arc::new(Mutex::new(create_store()));
 
     // remove "thread-pool" feature from futures if not using thread-pool
     let mut pool = futures::executor::LocalPool::new();
@@ -139,7 +145,7 @@ fn fiddle() {
 
     spawner
         .spawn(async move {
-            let mut stream = store2.lock().unwrap().stream(id2);
+            let mut stream = store2.lock().unwrap().write_stream(id2);
             stream.commit_unconditionally(&e0).await.expect("wtf?");
             stream.commit_unconditionally(&e1).await.expect("wtf?");
         })
@@ -152,7 +158,7 @@ fn fiddle() {
 
     spawner
         .spawn(async move {
-            let stream = store2.lock().unwrap().stream(id2);
+            let mut stream = store2.lock().unwrap().read_stream(id2);
             let mut it = stream
                 .read_unconverted(read::Options {
                     position: read::Position::Last,
@@ -177,7 +183,7 @@ fn fiddle() {
 
     spawner
         .spawn(async move {
-            let mut stream = store2.lock().unwrap().stream(id2);
+            let mut stream = store2.lock().unwrap().write_stream(id2);
             stream.commit_unconditionally(&e2).await.expect("wtf?");
             stream.commit_unconditionally(&e3).await.expect("wtf?");
         })

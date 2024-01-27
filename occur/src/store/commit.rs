@@ -37,6 +37,11 @@ pub enum ErrorKind {
     StreamFull,
 
     /// The specified commit condition was not met.
+    ///
+    /// TODO:
+    ///     Maybe it's better not to consider this an error, as creating an
+    ///     error whenever an optimistic write fails is heavy (due to having to
+    ///     potentially create a backtrace, etc).
     #[display("condition not met")]
     ConditionNotMet,
 

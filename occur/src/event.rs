@@ -6,7 +6,7 @@ use crate::{revision, Revision};
 /// An event that can be committed to an event stream.
 pub trait Event: Revision {
     /// An ID type that is used to uniquely identify event streams.
-    type StreamId: Clone + Eq + Hash;
+    type StreamId: Clone + Eq + Hash + Send + Sync;
 
     /// A type that holds old revisions that can be converted to `Self`.
     ///
