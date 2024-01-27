@@ -43,8 +43,6 @@ impl Revision for TvShowTrackEvent {
 
 #[test]
 fn fiddle() {
-    color_backtrace::install();
-
     println!("\n----------------------- [ ThreadPool read test ]");
 
     let id = TvShowTrackId(Uuid::now_v7());

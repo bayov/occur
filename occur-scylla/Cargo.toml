@@ -1,0 +1,17 @@
+[package]
+name = "occur-scylla"
+version = "0.1.0"
+description = "TBD"
+repository = "https://github.com/bayov/occur"
+readme = "README.md"
+license = "PRIVATE"
+edition = "2021"
+keywords = ["event", "event-sourcing"]
+categories = ["database"]
+
+[dependencies]
+anyhow = "1.0.79"
+color-backtrace = "0.6.1"
+occur = { path = "../occur" }
+scylla = "0.11.1"
+tokio = { version = "1.35.1", features = ["rt-multi-thread"] }

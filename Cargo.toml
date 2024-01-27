@@ -1,29 +1,3 @@
-[package]
-name = "occur"
-version = "0.1.0"
-description = "TBD"
-repository = "https://github.com/bayov/occur"
-readme = "README.md"
-license = "PRIVATE"
-edition = "2021"
-keywords = ["event", "event-sourcing"]
-categories = ["database"]
-
-[dependencies]
-async-channel = "2.1.0"
-derive_more = { version = "1.0.0-beta.6", features = ["display"] }
-futures = { version = "0.3.29", features = ["thread-pool"] }
-futures-locks = "0.7.1"
-indoc = "2.0.4"
-thiserror = "1.0.50"
-
-# TODO: remove to a separate crate
-anyhow = "1.0.79"
-color-backtrace = "0.6.1"
-scylla = "0.11.1"
-tokio = { version = "1.35.1", features = ["rt-multi-thread"] }
-
-[dev-dependencies]
-grcov = "0.8.19"
-rstest = "0.18.2"
-uuid = { version = "1.6.1", features = ["v7"] }
+[workspace]
+members = ["occur", "occur-scylla"]
+resolver = "2"

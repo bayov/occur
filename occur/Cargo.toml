@@ -1,0 +1,22 @@
+[package]
+name = "occur"
+version = "0.1.0"
+description = "TBD"
+repository = "https://github.com/bayov/occur"
+readme = "README.md"
+license = "PRIVATE"
+edition = "2021"
+keywords = ["event", "event-sourcing"]
+categories = ["database"]
+
+[dependencies]
+derive_more = { version = "1.0.0-beta.6", features = ["display"] }
+futures = { version = "0.3.29", features = ["thread-pool"] }
+futures-locks = "0.7.1"
+indoc = "2.0.4"
+thiserror = "1.0.50"
+
+[dev-dependencies]
+grcov = "0.8.19"
+rstest = "0.18.2"
+uuid = { version = "1.6.1", features = ["v7"] }
