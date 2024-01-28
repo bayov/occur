@@ -18,12 +18,10 @@ pub use entity::Entity;
 pub use error::ErrorWithKind;
 pub use event::Event;
 pub use revision::Revision;
-pub use serializer::{Deserializer, Serializer};
 pub use store::Store;
 
 mod entity;
 mod error;
 mod event;
 pub mod revision;
-pub mod serializer;
 pub mod store;

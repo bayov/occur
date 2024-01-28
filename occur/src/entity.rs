@@ -15,7 +15,7 @@ pub trait Entity<T: Event> {
     ///
     /// An event represents a recorded fact and cannot fail to be applied,
     /// meaning that events that cannot be used to fold the current entity
-    /// should simply be ignored and return [`None`].
+    /// should simply be ignored and return `self` without change.
     #[must_use]
     fn fold(self, event: T) -> Self
     where

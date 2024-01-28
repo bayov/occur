@@ -102,7 +102,7 @@ pub trait Convert: Revision {
     }
 }
 
-/// Represents a revision with no variants.
+/// A revision with no variants.
 ///
 /// Use this type as [`Event::OldRevision`] to indicate that an event is yet to
 /// have any old revisions.

@@ -4,10 +4,10 @@ use derive_more::Display;
 use futures::{Stream, StreamExt};
 
 use crate::error::ErrorWithKind;
-use crate::store::commit;
+use crate::store::CommitNumber;
 use crate::{revision, Event};
 
-/// Represents the position of an event within an event stream.
+/// Position of an event within an event stream.
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub enum Position {
     /// Represents the position of the first event.
@@ -15,7 +15,7 @@ pub enum Position {
     /// Represents the position of the last event.
     Last,
     /// Represents the position of the event at the given commit number.
-    Commit(commit::Number),
+    CommitNumber(CommitNumber),
 }
 
 /// The order in which events should be read from an event stream.
@@ -57,25 +57,25 @@ pub struct Options {
 /// Errors that might occur when reading events from a stream.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Display)]
 pub enum ErrorKind {
-    /// The specified [`Position::Commit`] number was not found within the
-    /// stream.
+    /// The specified [`Position::CommitNumber`] number was not found within
+    /// the stream.
     #[display("commit not found")]
     CommitNotFound,
 
     /// An unexpected error occurred.
     ///
-    /// Can be used by implementors of [`Read`] to denote
+    /// Can be used by implementors of [`ReadStream`] to denote
     /// implementation-specific errors that do not match any other
     /// [`ErrorKind`].
     #[display("unexpected error")]
     Other,
 }
 
-/// Represents an event stream from which events can be read.
+/// An event stream from which events can be read.
 ///
-/// This is the read side of an event stream. See [`crate::store::Commit`] for
-/// the write side.
-pub trait Read: Send {
+/// This is the read side of an event stream. See [`crate::store::WriteStream`]
+/// for the write side.
+pub trait ReadStream: Send {
     /// The type of events held within the stream.
     type Event: Event;
 

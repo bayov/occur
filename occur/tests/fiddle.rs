@@ -6,8 +6,16 @@ use std::sync::{Arc, Mutex};
 
 use futures::task::SpawnExt as _;
 use futures::{join, StreamExt};
-use occur::store::{commit, read, Commit as _, Read as _, Store as _};
-use occur::{revision, store, Revision};
+use occur::store::inmem::InmemStore;
+use occur::store::{
+    inmem,
+    read,
+    write,
+    ReadStream as _,
+    Store as _,
+    WriteStream as _,
+};
+use occur::{revision, Revision};
 use uuid::Uuid;
 
 use crate::TvShowTrackEvent::{Created, WatchedEpisode};
@@ -51,11 +59,7 @@ fn fiddle() {
     let e2 = WatchedEpisode { season: 1, episode: 2 };
     let e3 = WatchedEpisode { season: 1, episode: 3 };
 
-    let create_store = || {
-        let serializer = occur::serializer::Noop::new();
-        let deserializer = occur::serializer::Noop::new();
-        store::inmem::Store::new(serializer, deserializer)
-    };
+    let create_store = || InmemStore::new(inmem::no_serialization());
 
     let mut store = create_store();
 
@@ -64,9 +68,9 @@ fn fiddle() {
 
     let t = pool.spawn_with_handle(async move {
         let mut ws = store.write_stream(id.clone());
-        ws.commit_with_number(&e0, 0).await.expect("wtf?");
+        ws.commit_as_number(&e0, 0).await.expect("wtf?");
         ws.commit_unconditionally(&e1).await.unwrap();
-        ws.commit_with_number(&e2, 2).await.expect("wtf?");
+        ws.commit_as_number(&e2, 2).await.expect("wtf?");
         ws.commit_unconditionally(&e3).await.expect("wtf?");
 
         let mut rs = store.read_stream(id);
@@ -95,7 +99,7 @@ fn fiddle() {
         {
             let mut stream = store.lock().unwrap().write_stream(id.clone());
             stream
-                .commit_many([&e0, &e1], commit::Condition::None)
+                .commit_many([&e0, &e1], write::Condition::None)
                 .await
                 .unwrap();
         }
@@ -104,7 +108,7 @@ fn fiddle() {
             let mut stream = store.lock().unwrap().read_stream(id.clone());
             let mut it = stream
                 .read_unconverted(read::Options {
-                    position: read::Position::Commit(1),
+                    position: read::Position::CommitNumber(1),
                     direction: read::Direction::Forward,
                     limit: None,
                 })
