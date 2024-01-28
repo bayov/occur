@@ -54,29 +54,21 @@ where
             });
         }
         let limit = options.limit.unwrap_or(usize::MAX);
-        let deserializer = &self.deserializer;
-        let mut deserialized_events = Vec::new();
-        {
-            match options.direction {
-                read::Direction::Forward => {
-                    events[start..]
-                        .iter()
-                        .take(limit)
-                        .cloned()
-                        .map(|event| deserializer.deserialize(event))
-                        .collect_into(&mut deserialized_events);
-                }
-                read::Direction::Backward => {
-                    events[0..start]
-                        .iter()
-                        .rev()
-                        .take(limit)
-                        .cloned()
-                        .map(|event| deserializer.deserialize(event))
-                        .collect_into(&mut deserialized_events);
-                }
-            };
-        }
+        let deserialized_events: Vec<_> = match options.direction {
+            read::Direction::Forward => events[start..]
+                .iter()
+                .take(limit)
+                .cloned()
+                .map(|event| self.deserializer.deserialize(event))
+                .collect(),
+            read::Direction::Backward => events[0..start]
+                .iter()
+                .rev()
+                .take(limit)
+                .cloned()
+                .map(|event| self.deserializer.deserialize(event))
+                .collect(),
+        };
         Ok(futures::stream::iter(deserialized_events))
     }
 }
