@@ -12,7 +12,7 @@ pub trait Serializer: Clone + Send + Sync {
 
 pub trait Deserializer: Clone + Send + Sync {
     type Event: Event;
-    type SerializedEvent: Send + Sync;
+    type SerializedEvent;
 
     fn deserialize(
         &self,
