@@ -6,6 +6,9 @@
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/store/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/occur-scylla/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/occur/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/occur/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

@@ -18,6 +18,7 @@ pub const fn no_serialization<T: Event>(
 pub struct NoSerializer<T: Event>(PhantomData<T>);
 
 impl<T: Event> NoSerializer<T> {
+    #[allow(clippy::new_without_default)]
     #[must_use]
     pub const fn new() -> Self { Self(PhantomData) }
 }

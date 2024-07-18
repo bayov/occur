@@ -75,6 +75,7 @@ pub enum ErrorKind {
 ///
 /// This is the read side of an event stream. See [`crate::store::WriteStream`]
 /// for the write side.
+#[allow(clippy::module_name_repetitions)]
 pub trait ReadStream: Send {
     /// The type of events held within the stream.
     type Event: Event;
